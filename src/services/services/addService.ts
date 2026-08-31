@@ -1,19 +1,23 @@
 import { PostServicesData } from "../../types/services";
 import api from "../../utils/api";
 
+/**
+ * POST /business/services/create/
+ * Write fields: name, price, description, duration, employee_id
+ * business is scoped by owner token (optional business_id)
+ */
 export const addService = async (serviceData: PostServicesData) => {
-  // Swagger: POST /business/services/create/  (NOT /business/services/)
-  const payload = {
-    name: serviceData.name,
+  const payload: Record<string, unknown> = {
+    name: serviceData.name.trim(),
     price: String(serviceData.price),
-    description: serviceData.description ?? "",
+    description: serviceData.description?.trim() ?? "",
     duration: serviceData.duration,
     employee_id: Number(serviceData.employee_id),
-    // business is readOnly on Service schema; backend usually scopes by owner token
-    ...(serviceData.business_id
-      ? { business_id: Number(serviceData.business_id) }
-      : {}),
   };
+
+  if (serviceData.business_id) {
+    payload.business_id = Number(serviceData.business_id);
+  }
 
   const response = await api.post("/business/services/create/", payload);
   return response.data;

@@ -47,7 +47,7 @@
   }
 
   .primary-input-green {
-    outline: 2px solid theme("colors.primary-green.300");
+    outline: 2px solid theme("colors.gray.300");
     background-color: theme("colors.white");
     padding: theme("padding.2") theme("padding.4");
     border-radius: theme("borderRadius.xl");

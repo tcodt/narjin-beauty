@@ -42,10 +42,11 @@ const Login: React.FC = () => {
         toast.success("ورود موفقیت‌آمیز بود!", { id: toastId });
         queryClient.setQueryData(["userProfile"], res.user);
         loginContext({ access: res.access, refresh: res.refresh }, res.user);
+
         if (!savedType) {
           navigate("/role-authentication", { replace: true });
         } else if (savedType === "owner") {
-          navigate("/dashboard", { replace: true }); // guard may send to create-business only for owners
+          navigate("/dashboard", { replace: true });
         } else if (savedType === "customer") {
           navigate(joined ? "/home" : "/join-salon", { replace: true });
         } else {

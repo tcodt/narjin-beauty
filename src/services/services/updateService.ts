@@ -1,22 +1,25 @@
 import { PostServicesData } from "../../types/services";
 import api from "../../utils/api";
 
+/**
+ * PUT /business/services/{id}/
+ */
 export const updateService = async (data: {
   id: number;
   values: PostServicesData;
 }) => {
-  const payload = {
-    name: data.values.name,
+  const payload: Record<string, unknown> = {
+    name: data.values.name.trim(),
     price: String(data.values.price),
-    description: data.values.description ?? "",
+    description: data.values.description?.trim() ?? "",
     duration: data.values.duration,
     employee_id: Number(data.values.employee_id),
-    ...(data.values.business_id
-      ? { business_id: Number(data.values.business_id) }
-      : {}),
   };
 
-  // Swagger: PUT /business/services/{id}/
+  if (data.values.business_id) {
+    payload.business_id = Number(data.values.business_id);
+  }
+
   const response = await api.put(`/business/services/${data.id}/`, payload);
   return response.data;
 };

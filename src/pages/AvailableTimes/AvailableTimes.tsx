@@ -20,161 +20,195 @@ import { AxiosError } from "axios";
 import { useQueryClient } from "@tanstack/react-query";
 import { FaPencil, FaTrashCan } from "react-icons/fa6";
 import { useUpdateSlots } from "../../hooks/slots/useUpdateSlots";
-import { useNavigate } from "react-router";
 import { useRemoveSlots } from "../../hooks/slots/useRemoveSlots";
 import Dropdown from "../../components/Dropdown/Dropdown";
 import { motion } from "framer-motion";
+import {
+  formatTime,
+  toGregorianISO,
+  toPersianLabel,
+  todayPersian,
+} from "../../utils/date";
+import { LuCalendarDays, LuClock } from "react-icons/lu";
+import gregorian from "react-date-object/calendars/gregorian";
 
 const parentVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: {
-      staggerChildren: 0.2,
-      delayChildren: 0.1,
-    },
+    transition: { staggerChildren: 0.12, delayChildren: 0.05 },
   },
 };
 
 const childrenVariants = {
-  hidden: { opacity: 0, x: 100 },
-  visible: {
-    opacity: 1,
-    x: 0,
-  },
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0 },
 };
 
 const AvailableTimes: React.FC = () => {
-  const [dateValue, setDateValue] = useState<DateObject | null>(null);
+  const [dateValue, setDateValue] = useState<DateObject | null>(todayPersian());
   const [startTimeValue, setStartTimeValue] = useState<DateObject | null>(
-    new DateObject({ calendar: persian, locale: persian_fa })
+    new DateObject({ calendar: persian, locale: persian_fa }),
   );
   const [selectedService, setSelectedService] = useState<number>(0);
   const [selectedSlot, setSelectedSlot] = useState<SlotsResponse | null>(null);
 
-  const [isAddOpen, setIsAddOpen] = useState<boolean>(false);
-  const [isUpdateOpen, setIsUpdateOpen] = useState<boolean>(false);
-  const [isDeleteOpen, setIsDeleteOpen] = useState<boolean>(false);
-  const [isAvailable, setIsAvailable] = useState<boolean>(false);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isUpdateOpen, setIsUpdateOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isAvailable, setIsAvailable] = useState(true); // default FREE
   const [filteredSlots, setFilteredSlots] = useState<
     "all" | "available" | "unavailable"
   >("all");
 
-  const { data: slots, isPending, error, isError } = useGetSlots();
+  const { data: slots, isPending, isError } = useGetSlots();
   const addSlotMutation = useAddSlots();
   const updateSlotMutation = useUpdateSlots();
   const removeSlotMutation = useRemoveSlots();
   const { data: services } = useGetServices();
   const { themeColor } = useThemeColor();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
 
-  if (isError) {
-    toast.error("خطا در بارگذاری زمان های در دسترس!");
-    console.log("Error whilw fetching the slots: ", error);
-  }
-
-  // Helper to convert date string to Persian date
-  // const toPersianDate = (dateStr: string) => {
-  //   const date = new Date(dateStr);
-  //   return date.toLocaleDateString("fa-IR");
-  // };
-
-  const handleChangeDate = (
-    val: DateObject | null
-    // weekDay: string,
-    // day: number,
-    // month: string
-  ) => {
+  const handleChangeDate = (val: DateObject | null) => {
     setDateValue(val);
-    // console.log(
-    //   `Value: ${val} \n Week Day: ${weekDay} \n Day: ${day} \n Month: ${month}`
-    // );
   };
 
-  const handleChangeTime = (
-    date: DateObject | null
-    // options: {
-    //   validatedValue: string | string[];
-    //   input: HTMLElement;
-    //   isTyping: boolean;
-    // }
-  ) => {
+  const handleChangeTime = (date: DateObject | null) => {
     setStartTimeValue(date);
-    // console.log(
-    //   `Value: ${date?.format?.("HH:mm")} \n validatedValue: ${
-    //     options.validatedValue
-    //   }`
-    // );
+  };
+
+  const parseError = (err: unknown, fallback: string) => {
+    const ax = err as AxiosError<Record<string, unknown> | string[]>;
+    const data = ax.response?.data;
+    if (Array.isArray(data) && data[0]) return String(data[0]);
+    if (data && typeof data === "object") {
+      if (typeof (data as { detail?: string }).detail === "string") {
+        return (data as { detail: string }).detail;
+      }
+      const first = Object.values(data).find(
+        (v) => Array.isArray(v) && v[0],
+      ) as string[] | undefined;
+      if (first?.[0]) return String(first[0]);
+    }
+    return fallback;
   };
 
   const handleAddSlot = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!dateValue || !selectedService)
-      return toast.error("لطفا با دقت فرم را پر کنید");
+    if (!dateValue || !selectedService) {
+      toast.error("لطفا تاریخ و سرویس را انتخاب کنید");
+      return;
+    }
+    if (!startTimeValue) {
+      toast.error("ساعت شروع را انتخاب کنید");
+      return;
+    }
 
-    // Convert dateValue and startTimeValue to correct formats
-    const dateStr = dateValue?.format?.("YYYY-MM-DD") || "";
-    const startTimeStr = `${startTimeValue?.hour
-      .toString()
-      .padStart(2, "0")}:${startTimeValue?.minute.toString().padStart(2, "0")}`;
+    // CRITICAL: Gregorian for API (Swagger format: date)
+    const dateStr = toGregorianISO(dateValue);
+    const hour = startTimeValue.hour ?? 0;
+    const minute = startTimeValue.minute ?? 0;
+    const startTimeStr = `${String(hour).padStart(2, "0")}:${String(
+      minute,
+    ).padStart(2, "0")}:00`;
 
-    const newSlotData = {
+    const payload = {
+      service_id: selectedService,
       date: dateStr,
       start_time: startTimeStr,
       is_available: isAvailable,
-      service: selectedService,
     };
 
-    addSlotMutation.mutate(newSlotData, {
+    const toastId = toast.loading("در حال افزودن زمان...");
+
+    addSlotMutation.mutate(payload, {
       onSuccess: () => {
+        toast.success("زمان آزاد ثبت شد", { id: toastId });
         queryClient.invalidateQueries({ queryKey: ["slots"] });
+        queryClient.invalidateQueries({ queryKey: ["available-times"] });
         setIsAddOpen(false);
+        setDateValue(todayPersian());
+        setSelectedService(0);
+        setIsAvailable(true);
       },
-      onError: (error) => {
-        const axiosError = error as AxiosError;
-        console.log("Faild to add new slot: ", axiosError);
+      onError: (err) => {
+        toast.error(parseError(err, "خطا در افزودن زمان"), { id: toastId });
+        console.error("Failed to add slot", err);
       },
     });
   };
 
+  const openEditSlot = (slot: SlotsResponse) => {
+    setSelectedSlot(slot);
+    setSelectedService(slot.service || 0);
+    setIsAvailable(!!slot.is_available);
+
+    // date from API (Gregorian) → Persian DateObject for picker
+    try {
+      const [y, m, d] = slot.date.split("-").map(Number);
+      if (y && m && d) {
+        const g = new DateObject({
+          calendar: gregorian,
+          year: y,
+          month: m,
+          day: d,
+        });
+        setDateValue(g.convert(persian).setLocale(persian_fa));
+      }
+    } catch {
+      setDateValue(todayPersian());
+    }
+
+    // time
+    try {
+      const [hh, mm] = String(slot.start_time).split(":").map(Number);
+      const t = new DateObject({ calendar: persian, locale: persian_fa });
+      t.hour = hh || 0;
+      t.minute = mm || 0;
+      setStartTimeValue(t);
+    } catch {
+      setStartTimeValue(
+        new DateObject({ calendar: persian, locale: persian_fa }),
+      );
+    }
+
+    setIsUpdateOpen(true);
+  };
+
   const handleUpdateSlot = (e: FormEvent) => {
     e.preventDefault();
-
     if (!selectedSlot) return;
 
-    // Convert dateValue and startTimeValue to correct formats
-    const dateStr = dateValue?.format?.("YYYY-MM-DD") || selectedSlot.date;
+    const dateStr = dateValue ? toGregorianISO(dateValue) : selectedSlot.date;
+
     const startTimeStr = startTimeValue
-      ? `${startTimeValue?.hour
-          .toString()
-          .padStart(2, "0")}:${startTimeValue?.minute
-          .toString()
-          .padStart(2, "0")}`
+      ? `${String(startTimeValue.hour).padStart(2, "0")}:${String(
+          startTimeValue.minute,
+        ).padStart(2, "0")}:00`
       : selectedSlot.start_time;
 
-    const updatedSlotData = {
-      service: selectedService || selectedSlot.service,
-      date: dateStr,
-      start_time: startTimeStr,
-      is_available: isAvailable,
-    };
-
     updateSlotMutation.mutate(
-      { updateSlot: updatedSlotData, id: selectedSlot.id },
+      {
+        id: selectedSlot.id,
+        updateSlot: {
+          service_id: selectedService || selectedSlot.service,
+          date: dateStr,
+          start_time: startTimeStr,
+          is_available: isAvailable,
+        },
+      },
       {
         onSuccess: () => {
+          toast.success("زمان بروزرسانی شد");
           queryClient.invalidateQueries({ queryKey: ["slots"] });
           setIsUpdateOpen(false);
           setSelectedSlot(null);
         },
-        onError: (error) => {
-          const axiosError = error as AxiosError;
-          console.log("Failed to update slot: ", axiosError);
-          toast.error("خطا در بروزرسانی زمان!");
+        onError: (err) => {
+          toast.error(parseError(err, "خطا در بروزرسانی زمان"));
         },
-      }
+      },
     );
   };
 
@@ -182,19 +216,17 @@ const AvailableTimes: React.FC = () => {
     const slotId = toast.loading("درحال حذف زمان...");
     removeSlotMutation.mutate(id, {
       onSuccess: () => {
-        toast.success("زمان مورد نظر با موفقیت حذف شد", { id: slotId });
+        toast.success("زمان حذف شد", { id: slotId });
         queryClient.invalidateQueries({ queryKey: ["slots"] });
       },
-      onError: (error) => {
-        toast.error("خطا در حذف زمان!", { id: slotId });
-        console.log(error);
+      onError: (err) => {
+        toast.error(parseError(err, "خطا در حذف زمان"), { id: slotId });
       },
     });
   };
 
   const filteredSlotsArray = useMemo(() => {
     if (!slots) return [];
-
     switch (filteredSlots) {
       case "available":
         return slots.filter((slot) => slot.is_available);
@@ -205,270 +237,288 @@ const AvailableTimes: React.FC = () => {
     }
   }, [slots, filteredSlots]);
 
-  // Calculate counts for each filter option
   const allSlotsCount = slots?.length || 0;
   const availableSlotsCount =
     slots?.filter((slot) => slot.is_available).length || 0;
   const unavailableSlotsCount =
     slots?.filter((slot) => !slot.is_available).length || 0;
 
-  const handleAllAppointments = () => {
-    setFilteredSlots("all");
-  };
+  const freeSlots = slots?.filter((s) => s.is_available);
 
-  const handleAvailableAppointments = () => {
-    setFilteredSlots("available");
-  };
-
-  const handleUnAvailableAppointments = () => {
-    setFilteredSlots("unavailable");
-  };
-
-  const availableSlots = slots?.filter((s) => s.is_available);
+  const persianPreview = dateValue ? dateValue.format("YYYY/MM/DD") : "—";
+  const gregorianPreview = dateValue ? toGregorianISO(dateValue) : "—";
 
   return (
-    <section className="space-y-6">
-      {/* Add Slots */}
+    <section className="space-y-6 pb-10">
+      {/* ========== ADD MODAL ========== */}
       <CustomModal
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
-        title="افزودن زمان در دسترس"
+        title="افزودن زمان آزاد"
       >
         <form onSubmit={handleAddSlot} className="space-y-4">
+          <p className="rounded-xl bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
+            تاریخ را شمسی انتخاب کنید؛ برای سرور به‌صورت میلادی (`YYYY-MM-DD`)
+            ذخیره می‌شود.
+          </p>
+
           <div>
-            <label className="block mb-1">تاریخ</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
+              تاریخ (شمسی)
+            </label>
             <PersianDayPicker
               value={dateValue}
               onChange={handleChangeDate}
-              buttonLabel={dateValue ? String(dateValue) : "انتخاب تاریخ"}
-              bgColor="bg-white"
+              buttonLabel={
+                dateValue ? `تاریخ: ${persianPreview}` : "انتخاب تاریخ"
+              }
+              buttonIcon={
+                <LuCalendarDays size={18} className="text-emerald-600" />
+              }
+              bgColor="bg-white dark:bg-gray-700"
               textColor="gray-700"
+              selectedRed={false}
             />
+            <p className="mt-1.5 text-[11px] text-gray-400">
+              شمسی: <b>{persianPreview}</b>
+              {" · "}
+              API:{" "}
+              <span className="font-mono" dir="ltr">
+                {gregorianPreview}
+              </span>
+            </p>
           </div>
-          <div>
-            <label className="block mb-1">ساعت شروع</label>
 
-            {/* Manual Time Picker */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
+              ساعت شروع
+            </label>
             <DatePicker
               calendar={persian}
               format="HH:mm"
-              render={
-                <button
-                  type="button"
-                  className="flex items-center gap-2 py-2 px-4 rounded-xl bg-white text-gray-600 text-base font-medium border border-gray-200"
-                >
-                  {startTimeValue ? String(startTimeValue) : "انتخاب ساعت"}
-                </button>
-              }
               locale={persian_fa}
               value={startTimeValue}
               disableDayPicker
-              plugins={[<TimePicker hideSeconds />]}
-              calendarPosition="bottom-left"
+              plugins={[<TimePicker hideSeconds key="tp" />]}
+              calendarPosition="bottom-right"
               onChange={handleChangeTime}
-            >
-              {/* <div className="p-2">
+              render={(_value, openCalendar) => (
                 <button
-                type="button"
-                  className={`bg-${themeColor}-500 text-white py-2 px-4 rounded-xl text-base font-medium w-full`}
+                  type="button"
+                  onClick={openCalendar}
+                  className="flex w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-base font-medium text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
                 >
-                  انتخاب
+                  <LuClock size={18} className="text-emerald-600" />
+                  {startTimeValue
+                    ? `${String(startTimeValue.hour).padStart(2, "0")}:${String(
+                        startTimeValue.minute,
+                      ).padStart(2, "0")}`
+                    : "انتخاب ساعت"}
                 </button>
-              </div> */}
-            </DatePicker>
-            {/* Manual Time Picker */}
-
-            {/* <PersianTimePicker
-              value={startTimeValue}
-              onChange={handleChangeTime}
-              buttonLabel={startTimeValue?.format?.("HH:mm") || "انتخاب ساعت"}
-              bgColor="bg-white"
-              textColor="gray-700"
-            /> */}
+              )}
+            />
           </div>
+
           <div>
-            <label className="block mb-1">سرویس</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
+              سرویس
+            </label>
             <select
-              name="service"
               className="primary-input"
               required
               value={selectedService}
               onChange={(e) => setSelectedService(Number(e.target.value))}
             >
               <option value={0}>انتخاب سرویس</option>
-              {services &&
-                services.map((s: GetServicesItem) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
+              {services?.map((s: GetServicesItem) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
             </select>
           </div>
-          <div className="flex items-center gap-2">
+
+          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2.5 dark:border-emerald-900 dark:bg-emerald-900/20">
             <input
               type="checkbox"
-              name="is_available"
-              id="is_available"
               checked={isAvailable}
-              onChange={() => setIsAvailable(!isAvailable)}
+              onChange={() => setIsAvailable((v) => !v)}
+              className="h-4 w-4 accent-emerald-600"
             />
-            <label htmlFor="is_available">در دسترس</label>
-          </div>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+              قابل رزرو (آزاد)
+            </span>
+          </label>
+
           <Button type="submit" disabled={addSlotMutation.isPending}>
-            {addSlotMutation.isPending ? "در حال افزودن..." : "افزودن"}
+            {addSlotMutation.isPending ? "در حال افزودن..." : "ثبت زمان آزاد"}
           </Button>
         </form>
       </CustomModal>
 
-      {/* Update Slots */}
+      {/* ========== UPDATE MODAL ========== */}
       <CustomModal
         isOpen={isUpdateOpen}
-        onClose={() => setIsUpdateOpen(false)}
-        title="بروزرسانی زمان در دسترس"
+        onClose={() => {
+          setIsUpdateOpen(false);
+          setSelectedSlot(null);
+        }}
+        title="بروزرسانی زمان"
       >
-        <div>
-          {availableSlots && availableSlots.length > 0 ? (
-            availableSlots.map((slot) => (
-              <div
-                key={slot.id}
-                className={`flex flex-col gap-2 relative border-s-2 border-s-${themeColor}-500 rounded-e-xl bg-slate-100 dark:bg-gray-700 shadow-md p-2 mb-4`}
-              >
-                <div className="flex items-center gap-2 text-base font-medium">
-                  <span className="text-gray-800 dark:text-gray-100">
-                    تاریخ:{" "}
-                  </span>{" "}
-                  <span className="text-gray-600 dark:text-gray-300">
-                    {slot.date}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-base font-medium">
-                  <span className="text-gray-800 dark:text-gray-100">
-                    ساعت شروع:{" "}
-                  </span>{" "}
-                  <span className="text-gray-600 dark:text-gray-300">
-                    {slot.start_time}
-                  </span>
-                </div>
-                <button
-                  className={`text-xl text-${themeColor}-500 absolute top-7 left-4 hover:text-${themeColor}-600 transition`}
-                  onClick={() => navigate(`/update-slots/${slot.id}`)}
-                >
-                  <FaPencil />
-                </button>
-              </div>
-            ))
-          ) : (
-            <p className="text-base font-medium text-gray-600 dark:text-gray-300">
-              هیچ زمان در دسترسی برای بروزرسانی وجود ندارد!
+        {/* List: pick a slot to edit */}
+        {!selectedSlot && (
+          <div className="mb-4 space-y-2">
+            <p className="text-xs text-gray-500">
+              یک زمان را برای ویرایش انتخاب کنید:
             </p>
-          )}
+            {freeSlots && freeSlots.length > 0 ? (
+              freeSlots.map((slot) => (
+                <button
+                  key={slot.id}
+                  type="button"
+                  onClick={() => openEditSlot(slot)}
+                  className={`flex w-full items-center justify-between rounded-xl border border-gray-100 bg-slate-50 p-3 text-right dark:border-gray-600 dark:bg-gray-700`}
+                >
+                  <span className="text-sm font-medium text-gray-800 dark:text-white">
+                    {toPersianLabel(slot.date)} — {formatTime(slot.start_time)}
+                  </span>
+                  <FaPencil className={`text-${themeColor}-500`} />
+                </button>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500">
+                زمان آزادی برای ویرایش نیست.
+              </p>
+            )}
+          </div>
+        )}
 
-          {selectedSlot && (
-            <form onSubmit={handleUpdateSlot} className="space-y-4">
-              <div>
-                <label className="block mb-1">تاریخ</label>
-                <PersianDayPicker
-                  value={dateValue}
-                  onChange={handleChangeDate}
-                  buttonLabel={dateValue ? String(dateValue) : "انتخاب تاریخ"}
-                  bgColor="bg-white"
-                  textColor="gray-700"
-                />
-              </div>
-              <div>
-                <label className="block mb-1">ساعت شروع</label>
-                <DatePicker
-                  calendar={persian}
-                  format="HH:mm"
-                  render={
-                    <button className="flex items-center gap-2 py-2 px-4 rounded-xl bg-white text-gray-600 text-base font-medium border border-gray-200">
-                      {startTimeValue ? String(startTimeValue) : "انتخاب ساعت"}
-                    </button>
-                  }
-                  locale={persian_fa}
-                  value={startTimeValue}
-                  disableDayPicker
-                  plugins={[<TimePicker hideSeconds />]}
-                  calendarPosition="bottom-left"
-                  onChange={handleChangeTime}
-                >
-                  <div className="p-2">
-                    <button
-                      className={`bg-${themeColor}-500 text-white py-2 px-4 rounded-xl text-base font-medium w-full`}
-                    >
-                      انتخاب
-                    </button>
-                  </div>
-                </DatePicker>
-              </div>
-              <div>
-                <label className="block mb-1">سرویس</label>
-                <select
-                  name="service"
-                  className="primary-input"
-                  required
-                  value={selectedService}
-                  onChange={(e) => setSelectedService(Number(e.target.value))}
-                >
-                  <option value={0}>انتخاب سرویس</option>
-                  {services &&
-                    services.map((s: GetServicesItem) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="is_available"
-                  id="is_available_update"
-                  checked={isAvailable}
-                  onChange={() => setIsAvailable(!isAvailable)}
-                />
-                <label htmlFor="is_available_update">در دسترس</label>
-              </div>
+        {/* Form: only after a slot is chosen → uses handleUpdateSlot */}
+        {selectedSlot && (
+          <form onSubmit={handleUpdateSlot} className="space-y-4">
+            <p className="text-xs text-gray-400">
+              در حال ویرایش زمان #{selectedSlot.id}
+            </p>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                تاریخ (شمسی)
+              </label>
+              <PersianDayPicker
+                value={dateValue}
+                onChange={handleChangeDate}
+                buttonLabel={
+                  dateValue
+                    ? `تاریخ: ${dateValue.format("YYYY/MM/DD")}`
+                    : "انتخاب تاریخ"
+                }
+                buttonIcon={
+                  <LuCalendarDays size={18} className="text-emerald-600" />
+                }
+                bgColor="bg-white dark:bg-gray-700"
+                textColor="gray-700"
+                selectedRed={false}
+              />
+              <p className="mt-1 text-[11px] text-gray-400">
+                API:{" "}
+                <span className="font-mono" dir="ltr">
+                  {dateValue ? toGregorianISO(dateValue) : "—"}
+                </span>
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                ساعت شروع
+              </label>
+              <DatePicker
+                calendar={persian}
+                format="HH:mm"
+                locale={persian_fa}
+                value={startTimeValue}
+                disableDayPicker
+                plugins={[<TimePicker hideSeconds key="tp-edit" />]}
+                calendarPosition="bottom-right"
+                onChange={handleChangeTime}
+                render={(_value, openCalendar) => (
+                  <button
+                    type="button"
+                    onClick={openCalendar}
+                    className="flex w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  >
+                    <LuClock size={18} className="text-emerald-600" />
+                    {startTimeValue
+                      ? `${String(startTimeValue.hour).padStart(2, "0")}:${String(
+                          startTimeValue.minute,
+                        ).padStart(2, "0")}`
+                      : "انتخاب ساعت"}
+                  </button>
+                )}
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">سرویس</label>
+              <select
+                className="primary-input"
+                value={selectedService}
+                onChange={(e) => setSelectedService(Number(e.target.value))}
+              >
+                <option value={0}>انتخاب سرویس</option>
+                {services?.map((s: GetServicesItem) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <label className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 dark:bg-emerald-900/20">
+              <input
+                type="checkbox"
+                checked={isAvailable}
+                onChange={() => setIsAvailable((v) => !v)}
+                className="accent-emerald-600"
+              />
+              <span className="text-sm">قابل رزرو (آزاد)</span>
+            </label>
+
+            <div className="flex gap-2">
               <Button type="submit" disabled={updateSlotMutation.isPending}>
                 {updateSlotMutation.isPending
-                  ? "در حال بروزرسانی..."
-                  : "بروزرسانی"}
+                  ? "در حال ذخیره..."
+                  : "ذخیره تغییرات"}
               </Button>
-            </form>
-          )}
-        </div>
+              <button
+                type="button"
+                className="rounded-xl px-4 text-sm text-gray-500"
+                onClick={() => setSelectedSlot(null)}
+              >
+                بازگشت به لیست
+              </button>
+            </div>
+          </form>
+        )}
       </CustomModal>
 
-      {/* Remove Slots */}
+      {/* ========== DELETE MODAL ========== */}
       <CustomModal
         isOpen={isDeleteOpen}
         onClose={() => setIsDeleteOpen(false)}
-        title="حذف زمان در دسترس"
+        title="حذف زمان آزاد"
       >
-        {availableSlots && availableSlots.length > 0 ? (
-          availableSlots.map((slot) => (
+        {freeSlots && freeSlots.length > 0 ? (
+          freeSlots.map((slot) => (
             <div
               key={slot.id}
-              className={`flex flex-col gap-2 relative border-s-2 border-s-red-500 rounded-e-xl bg-slate-100 dark:bg-gray-700 shadow-md p-2 mb-4`}
+              className="relative mb-3 flex flex-col gap-1 rounded-e-xl border-s-2 border-s-red-500 bg-slate-100 p-3 dark:bg-gray-700"
             >
-              <div className="flex items-center gap-2 text-base font-medium">
-                <span className="text-gray-800 dark:text-gray-100">
-                  تاریخ:{" "}
-                </span>{" "}
-                <span className="text-gray-600 dark:text-gray-300">
-                  {slot.date}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-base font-medium">
-                <span className="text-gray-800 dark:text-gray-100">
-                  ساعت شروع:{" "}
-                </span>{" "}
-                <span className="text-gray-600 dark:text-gray-300">
-                  {slot.start_time}
-                </span>
-              </div>
+              <p className="text-sm text-gray-700 dark:text-gray-200">
+                {toPersianLabel(slot.date)} — {formatTime(slot.start_time)}
+              </p>
               <button
-                className={`text-xl text-red-500 absolute top-7 left-4 hover:text-red-600 transition`}
+                type="button"
+                className="absolute left-3 top-3 text-lg text-red-500"
                 onClick={() => handleRemoveSlot(slot.id)}
               >
                 <FaTrashCan />
@@ -476,85 +526,70 @@ const AvailableTimes: React.FC = () => {
             </div>
           ))
         ) : (
-          <p className="text-base font-medium text-gray-600 dark:text-gray-300">
-            هیچ زمان در دسترسی برای حذف وجود ندارد!
-          </p>
+          <p className="text-sm text-gray-500">زمان آزادی برای حذف نیست.</p>
         )}
       </CustomModal>
 
-      <div className="flex flex-row justify-between items-center mt-8">
-        <PageTitle title="زمان های در دسترس" />
-        {/* Edit Box */}
-        <div className="flex flex-row flex-wrap items-center gap-2">
-          <Dropdown
-            isAddOpen={isAddOpen}
-            setIsAddOpen={setIsAddOpen}
-            isUpdateOpen={isUpdateOpen}
-            setIsUpdateOpen={setIsUpdateOpen}
-            isDeleteOpen={isDeleteOpen}
-            setIsDeleteOpen={setIsDeleteOpen}
-          />
-        </div>
+      <div className="mt-8 flex items-center justify-between">
+        <PageTitle title="زمان‌های در دسترس" />
+        <Dropdown
+          isAddOpen={isAddOpen}
+          setIsAddOpen={setIsAddOpen}
+          isUpdateOpen={isUpdateOpen}
+          setIsUpdateOpen={setIsUpdateOpen}
+          isDeleteOpen={isDeleteOpen}
+          setIsDeleteOpen={setIsDeleteOpen}
+        />
       </div>
 
-      <div className="p-4 flex flex-col items-center">
+      {isError && (
+        <p className="text-center text-sm text-rose-500">
+          خطا در بارگذاری زمان‌ها
+        </p>
+      )}
+
+      <div className="flex flex-col items-center p-2">
         {isPending && (
           <div className="mt-4">
             <Dots />
           </div>
         )}
 
-        <div className="flex items-center gap-4 mb-6">
-          <button
-            className={`${
-              filteredSlots == "all"
-                ? `text-${themeColor}-500 border-${themeColor}-500`
-                : "text-gray-500 dark:text-gray-200 border-transparent"
-            } p-1 border-b-2 text-xs font-medium relative`}
-            onClick={handleAllAppointments}
-          >
-            <div
-              className={`absolute -top-3 -right-1 bg-${themeColor}-500 text-white w-6 h-4 rounded-full flex items-center justify-center`}
+        <div className="mb-6 flex items-center gap-4">
+          {(
+            [
+              ["all", "همه", allSlotsCount, themeColor],
+              ["available", "آزاد", availableSlotsCount, "green"],
+              ["unavailable", "رزرو شده", unavailableSlotsCount, "red"],
+            ] as const
+          ).map(([key, label, count, color]) => (
+            <button
+              key={key}
+              type="button"
+              className={`relative border-b-2 p-1 text-xs font-medium ${
+                filteredSlots === key
+                  ? color === "green"
+                    ? "border-green-500 text-green-500"
+                    : color === "red"
+                      ? "border-red-500 text-red-500"
+                      : `border-${themeColor}-500 text-${themeColor}-500`
+                  : "border-transparent text-gray-500 dark:text-gray-200"
+              }`}
+              onClick={() => setFilteredSlots(key)}
             >
-              {allSlotsCount}
-            </div>
-            همه زمان ها
-          </button>
-          <button
-            className={`${
-              filteredSlots === "available"
-                ? "text-green-500 border-green-500"
-                : "text-gray-500 dark:text-gray-200 border-transparent"
-            } p-1 border-b-2 text-xs font-medium relative`}
-            onClick={handleAvailableAppointments}
-          >
-            <div
-              className={`absolute -top-3 -right-1 bg-${themeColor}-500 text-white w-6 h-4 rounded-full flex items-center justify-center`}
-            >
-              {availableSlotsCount}
-            </div>
-            در دسترس ها
-          </button>
-          <button
-            className={`${
-              filteredSlots === "unavailable"
-                ? "text-red-500 border-red-500"
-                : "text-gray-500 dark:text-gray-200 border-transparent"
-            } p-1 border-b-2 text-xs font-medium relative`}
-            onClick={handleUnAvailableAppointments}
-          >
-            <div
-              className={`absolute -top-3 -right-1 bg-${themeColor}-500 text-white w-6 h-4 rounded-full flex items-center justify-center`}
-            >
-              {unavailableSlotsCount}
-            </div>
-            رزرو شده ها
-          </button>
+              <span
+                className={`absolute -top-3 -right-1 flex h-4 w-6 items-center justify-center rounded-full bg-${themeColor}-500 text-[10px] text-white`}
+              >
+                {count}
+              </span>
+              {label}
+            </button>
+          ))}
         </div>
 
-        {filteredSlotsArray && filteredSlotsArray.length > 0 ? (
+        {filteredSlotsArray.length > 0 ? (
           <motion.div
-            className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl"
+            className="grid w-full max-w-2xl grid-cols-1 gap-3 md:grid-cols-2"
             variants={parentVariants}
             initial="hidden"
             animate="visible"
@@ -562,52 +597,44 @@ const AvailableTimes: React.FC = () => {
             {filteredSlotsArray.map((slot: SlotsResponse) => (
               <motion.div
                 key={slot.id}
-                className={`rounded-xl shadow-md p-4 flex flex-col items-start border-2 transition-all ${
-                  slot.is_available
-                    ? "border-green-400 bg-green-50 dark:bg-green-900"
-                    : "border-red-400 bg-red-50 dark:bg-red-900"
-                }`}
                 variants={childrenVariants}
+                className={`rounded-2xl border-2 p-4 shadow-sm ${
+                  slot.is_available
+                    ? "border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/30"
+                    : "border-rose-300 bg-rose-50 dark:border-rose-700 dark:bg-rose-900/30"
+                }`}
               >
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="font-semibold text-gray-700 dark:text-white">
-                    تاریخ:
-                  </span>
-                  <span className="text-base text-gray-600 dark:text-gray-300">
-                    {slot.date}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="font-semibold text-gray-700 dark:text-white">
-                    ساعت شروع:
-                  </span>
-                  <span className="text-base text-gray-600 dark:text-gray-300">
-                    {slot.start_time}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-gray-700 dark:text-white">
-                    وضعیت:
-                  </span>
-                  <span
-                    className={`text-sm font-bold ${
-                      slot.is_available ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
-                    {slot.is_available ? "در دسترس" : "رزرو شده"}
-                  </span>
-                </div>
+                <p className="text-sm font-semibold text-gray-800 dark:text-white">
+                  {toPersianLabel(slot.date)}
+                </p>
+                <p className="mt-1 text-lg font-bold text-gray-900 dark:text-gray-100">
+                  {formatTime(slot.start_time)}
+                </p>
+                <p className="mt-0.5 text-[11px] text-gray-400" dir="ltr">
+                  {slot.date}
+                </p>
+                <span
+                  className={`mt-2 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                    slot.is_available
+                      ? "bg-emerald-500 text-white"
+                      : "bg-rose-500 text-white"
+                  }`}
+                >
+                  {slot.is_available ? "آزاد" : "رزرو شده"}
+                </span>
               </motion.div>
             ))}
           </motion.div>
         ) : (
-          <div className="text-gray-500 text-lg mt-8">
-            {filteredSlots === "all"
-              ? "زمانی برای نمایش وجود ندارد."
-              : filteredSlots === "available"
-              ? "زمان در دسترسی یافت نشد."
-              : "زمان رزرو شده‌ای یافت نشد."}
-          </div>
+          !isPending && (
+            <p className="mt-8 text-gray-500">
+              {filteredSlots === "all"
+                ? "زمانی برای نمایش وجود ندارد."
+                : filteredSlots === "available"
+                  ? "زمان آزادی یافت نشد."
+                  : "زمان رزرو شده‌ای یافت نشد."}
+            </p>
+          )
         )}
       </div>
     </section>

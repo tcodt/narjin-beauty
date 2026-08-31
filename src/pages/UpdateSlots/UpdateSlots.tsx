@@ -13,6 +13,8 @@ import toast from "react-hot-toast";
 import Loading from "../../components/Loading/Loading";
 import PersianTimePicker from "../../components/PersianTimePicker/PersianTimePicker";
 import DateObject from "react-date-object";
+import persian from "react-date-object/calendars/persian";
+import persian_fa from "react-date-object/locales/persian_fa";
 import { useThemeColor } from "../../context/ThemeColor";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -57,7 +59,6 @@ const UpdateSlots: React.FC = () => {
   const [isAvailable, setIsAvailable] = useState<boolean>(false);
   const queryClient = useQueryClient();
 
-  // Update the useEffect to also set the timeValue
   useEffect(() => {
     if (slotData) {
       // Parse the time from the existing data
@@ -65,11 +66,18 @@ const UpdateSlots: React.FC = () => {
       const hour = parseInt(timeParts[0]);
       const minute = parseInt(timeParts[1]);
 
-      // Parse the date from existing data (assuming format is YYYY-MM-DD)
-      const dateParts = slotData.date.split("-");
-      const year = parseInt(dateParts[0]);
-      const month = parseInt(dateParts[1]);
-      const day = parseInt(dateParts[2]);
+      // Parse Gregorian date from API (YYYY-MM-DD) and convert to Persian DateObject
+      const gregorianParts = slotData.date.split("-");
+      const gregorianDate = new Date(
+        parseInt(gregorianParts[0]),
+        parseInt(gregorianParts[1]) - 1,
+        parseInt(gregorianParts[2]),
+      );
+      const persianDate = new DateObject({
+        date: gregorianDate,
+        calendar: persian,
+        locale: persian_fa,
+      });
 
       // Create a DateObject for the time picker
       const timeObj = new DateObject();
@@ -77,28 +85,8 @@ const UpdateSlots: React.FC = () => {
       timeObj.minute = minute;
 
       setStartTime({ hour, minute });
-      setTimeValue(timeObj); // Set the timeValue for the picker
-      setDateParts({ year, month, day });
-      setSelectedService(slotData.service);
-      setIsAvailable(slotData.is_available);
-    }
-  }, [slotData]);
-
-  useEffect(() => {
-    if (slotData) {
-      // Parse the time from the existing data
-      const timeParts = slotData.start_time.split(":");
-      const hour = parseInt(timeParts[0]);
-      const minute = parseInt(timeParts[1]);
-
-      // Parse the date from existing data (assuming format is YYYY-MM-DD)
-      const dateParts = slotData.date.split("-");
-      const year = parseInt(dateParts[0]);
-      const month = parseInt(dateParts[1]);
-      const day = parseInt(dateParts[2]);
-
-      setStartTime({ hour, minute });
-      setDateParts({ year, month, day });
+      setTimeValue(timeObj);
+      setDateValue(persianDate);
       setSelectedService(slotData.service);
       setIsAvailable(slotData.is_available);
     }
@@ -108,42 +96,17 @@ const UpdateSlots: React.FC = () => {
     value: any,
     _weekDay: string,
     day: number,
-    month: string
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _month: string
   ) => {
     setDateValue(value);
 
-    // Extract year from the value object
-    const year = value?.year || new Date().getFullYear();
-
-    // Convert month name to month number if needed
+    // Store Persian values for display (YYYY/MM/DD in Persian calendar)
+    const year = value?.year || 0;
     const monthNumber =
-      typeof month === "string"
-        ? getMonthNumberFromName(month)
-        : typeof month === "number"
-        ? month
-        : new Date().getMonth() + 1;
+      typeof value?.month?.number === "number" ? value.month.number : 0;
 
     setDateParts({ year, month: monthNumber, day });
-  };
-
-  // Helper function to convert month name to month number
-  const getMonthNumberFromName = (monthName: string): number => {
-    const months: Record<string, number> = {
-      فروردین: 1,
-      اردیبهشت: 2,
-      خرداد: 3,
-      تیر: 4,
-      مرداد: 5,
-      شهریور: 6,
-      مهر: 7,
-      آبان: 8,
-      آذر: 9,
-      دی: 10,
-      بهمن: 11,
-      اسفند: 12,
-    };
-
-    return months[monthName] || new Date().getMonth() + 1;
   };
 
   const handleTimeChange = (value: any, hour: number, minute: number) => {
@@ -165,17 +128,20 @@ const UpdateSlots: React.FC = () => {
     }
   };
 
-  // Format date as YYYY-MM-DD for the API
+  // Format date as Gregorian YYYY-MM-DD for the API
   const formatDateForAPI = (): string => {
-    if (!dateParts.year || !dateParts.month || !dateParts.day) return "";
+    if (!dateValue) return "";
 
-    return `${dateParts.year}-${dateParts.month
-      .toString()
-      .padStart(2, "0")}-${dateParts.day.toString().padStart(2, "0")}`;
+    // Convert Persian DateObject → Gregorian JS Date
+    const jsDate = dateValue.toDate();
+    const y = jsDate.getFullYear();
+    const m = String(jsDate.getMonth() + 1).padStart(2, "0");
+    const d = String(jsDate.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
   };
 
   const handleUpdateSlot = () => {
-    if (!dateParts.year || !dateParts.month || !dateParts.day) {
+    if (!dateValue) {
       toast.error("لطفاً تاریخ را انتخاب کنید.");
       return;
     }
@@ -191,7 +157,7 @@ const UpdateSlots: React.FC = () => {
       .padStart(2, "0")}:${startTime.minute.toString().padStart(2, "0")}`;
 
     const updatedSlotData = {
-      service: selectedService,
+      service_id: selectedService,
       date: formattedDate,
       start_time: formattedTime,
       is_available: isAvailable,

@@ -1,18 +1,25 @@
-import { NewEmployeePromiseType } from "../../types/employees";
+import {
+  EmployeeUpdatePayload,
+  NewEmployeePromiseType,
+} from "../../types/employees";
 import api from "../../utils/api";
 
-export const updateEmployee = async ({
-  id,
-  user_id,
-  skill,
-}: {
+/**
+ * PUT /business/employees/update/{id}/
+ */
+export const updateEmployee = async (data: {
   id: number;
-  user_id: number;
-  skill: string;
+  values: EmployeeUpdatePayload;
 }): Promise<NewEmployeePromiseType> => {
-  const response = await api.put(`/business/employees/update/${id}/`, {
-    user_id,
-    skill,
-  });
+  const body = {
+    first_name: data.values.first_name.trim(),
+    last_name: data.values.last_name.trim(),
+    skill: data.values.skill.trim(),
+  };
+
+  const response = await api.put(
+    `/business/employees/update/${data.id}/`,
+    body,
+  );
   return response.data;
 };

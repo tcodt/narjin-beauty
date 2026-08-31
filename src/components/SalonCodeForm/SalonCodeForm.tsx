@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   LuKeyRound,
   LuArrowRight,
-  LuLogOut,
+  // LuLogOut,
   LuStore,
   LuCircleCheckBig,
   LuCircleAlert,
@@ -36,7 +36,7 @@ const SalonCodeForm: React.FC<SalonCodeFormProps> = ({
   onSuccess,
   showCurrentSalon = true,
   onExitPublic,
-  exitPublicLabel = "خروج به صفحه ورود",
+  // exitPublicLabel = "خروج به صفحه ورود",
 }) => {
   const [code, setCode] = useState("");
   const resolveMutation = useResolveBusiness();
@@ -127,7 +127,7 @@ const SalonCodeForm: React.FC<SalonCodeFormProps> = ({
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 p-4 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="flex min-h-screen items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -152,7 +152,7 @@ const SalonCodeForm: React.FC<SalonCodeFormProps> = ({
                       بازگشت
                     </motion.button>
                   )}
-                  {onExitPublic && (
+                  {/* {onExitPublic && (
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
@@ -163,7 +163,7 @@ const SalonCodeForm: React.FC<SalonCodeFormProps> = ({
                       <LuLogOut size={16} />
                       {exitPublicLabel}
                     </motion.button>
-                  )}
+                  )} */}
                 </>
               )}
             </div>

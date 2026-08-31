@@ -110,7 +110,7 @@ const SplashScreen: React.FC = () => {
     const timer = setTimeout(() => {
       setShowSplash(false);
       setTimeout(() => {
-        navigate(token ? "/home" : "/auth");
+        navigate(token ? "/dashboard" : "/auth");
       }, 800);
     }, 2500);
 

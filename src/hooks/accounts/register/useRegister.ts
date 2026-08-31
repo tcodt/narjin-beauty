@@ -5,56 +5,61 @@ import { clearAuthTokens, storeAuthTokens } from "../../../utils/tokenHelper";
 import { useNavigate } from "react-router";
 import { AxiosError } from "axios";
 import toast from "react-hot-toast";
+import { useUserType } from "../../../context/UserTypeContext";
+import { useJoinedBusiness } from "../../../context/JoinedBusinessContext";
 
-// تعریف نوع پاسخ خطای سرور (بر اساس چیزی که از بک‌اند می‌گیری)
 interface ApiErrorResponse {
   phone_number?: string[];
   non_field_errors?: string[];
-  detail?: string[];
-  [key: string]: string[] | undefined; // برای فیلدهای دیگه در آینده
+  detail?: string[] | string;
+  [key: string]: string[] | string | undefined;
 }
 
 export const useRegister = () => {
   const queryClient = useQueryClient();
   const { login: loginContext } = useAuth();
   const navigate = useNavigate();
+  const { clearUserType } = useUserType();
+  const { clearJoinedBusiness } = useJoinedBusiness();
 
   return useMutation({
     mutationFn: registerFn,
     onSuccess: (data) => {
+      // New account → wipe previous role / salon from this browser
+      clearUserType();
+      clearJoinedBusiness();
+      localStorage.removeItem("userType");
+      localStorage.removeItem("joinedBusiness");
+
       storeAuthTokens(data);
       queryClient.setQueryData(["userProfile"], data.user);
       loginContext({ access: data.access, refresh: data.refresh }, data.user);
+
       toast.success("ثبت‌نام با موفقیت انجام شد!");
-      navigate("/role-authentication");
+      navigate("/role-authentication", { replace: true });
     },
     onError: (error: unknown) => {
-      // اول AxiosError بودن رو چک می‌کنیم
       if (error instanceof AxiosError) {
         const axiosError = error as AxiosError<ApiErrorResponse>;
-
-        // چک می‌کنیم response و data وجود داره
         const errorData = axiosError.response?.data;
 
         if (errorData) {
-          // اولویت: خطای شماره تلفن
-          if (errorData.phone_number && errorData.phone_number.length > 0) {
-            toast.error(errorData.phone_number[0]); // فقط اولین پیام رو نشون بده
+          if (errorData.phone_number?.[0]) {
+            toast.error(errorData.phone_number[0]);
             return;
           }
-
-          // خطاهای عمومی مثل non_field_errors یا detail
           if (errorData.non_field_errors?.[0]) {
             toast.error(errorData.non_field_errors[0]);
             return;
           }
-
-          if (errorData.detail?.[0]) {
+          if (typeof errorData.detail === "string") {
+            toast.error(errorData.detail);
+            return;
+          }
+          if (Array.isArray(errorData.detail) && errorData.detail[0]) {
             toast.error(errorData.detail[0]);
             return;
           }
-
-          // اگر خطای فیلد دیگه‌ای بود (مثل password, email و ...)
           const firstFieldError = Object.values(errorData).find(
             (arr) => Array.isArray(arr) && arr.length > 0,
           );
@@ -64,14 +69,12 @@ export const useRegister = () => {
           }
         }
 
-        // اگر هیچ خطای خاصی نبود، خطای عمومی 400
         if (axiosError.response?.status === 400) {
           toast.error("اطلاعات وارد شده معتبر نیست.");
           return;
         }
       }
 
-      // خطای غیرمنتظره (مثل مشکل شبکه)
       console.error("Register error:", error);
       toast.error("خطایی رخ داد! لطفاً دوباره تلاش کنید.");
       clearAuthTokens();

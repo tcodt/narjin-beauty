@@ -65,6 +65,20 @@ const NetworkStatusWrapper: React.FC<{ children: React.ReactNode }> = ({
   return <>{children}</>;
 };
 
+const PostAuthRedirect: React.FC = () => {
+  const { userType, isReady } = useUserType();
+  if (!isReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Dots />
+      </div>
+    );
+  }
+  if (!userType) return <Navigate to="/role-authentication" replace />;
+  if (userType === "owner") return <Navigate to="/dashboard" replace />;
+  return <Navigate to="/home" replace />;
+};
+
 /* -------------------------------------------------------------------------- */
 /* Onboarding-only guard (UserFlow)                                           */
 /* -------------------------------------------------------------------------- */
@@ -77,7 +91,7 @@ const NetworkStatusWrapper: React.FC<{ children: React.ReactNode }> = ({
 const OnboardingOnly: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const { userType, isReady } = useUserType();
   const location = useLocation();
 
@@ -89,27 +103,42 @@ const OnboardingOnly: React.FC<{ children: React.ReactNode }> = ({
     );
   }
 
-  // Must be logged in to continue onboarding
   if (!isAuthenticated) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
   const hasJoinedSalon = !!localStorage.getItem("joinedBusiness");
+  const profileOwner = !!(user as { is_owner?: boolean } | null)?.is_owner;
 
-  // Already finished customer onboarding → app (use /join-salon to change code)
-  if (userType === "customer" && hasJoinedSalon) {
-    return <Navigate to="/home" replace />;
-  }
-
-  // Already owner → app / waiting room (not registration code page)
-  if (userType === "owner") {
-    // Allow create-business if they somehow still need it; block random-code
-    if (location.pathname === "/random-code-input") {
+  // Always allow role selection when role is missing
+  if (location.pathname === "/role-authentication") {
+    // Only skip if they already finished a full path
+    if (userType === "customer" && hasJoinedSalon) {
+      return <Navigate to="/home" replace />;
+    }
+    if (userType === "owner" && profileOwner) {
       return <Navigate to="/dashboard" replace />;
     }
-    // If they already have a business, BusinessStatusGuard handles the rest
-    if (location.pathname === "/role-authentication" && hasJoinedSalon) {
-      return <Navigate to="/dashboard" replace />;
+    // New users (or role not chosen) stay here
+    return <>{children}</>;
+  }
+
+  // create-business only after choosing owner
+  if (location.pathname === "/create-business") {
+    if (!userType) {
+      return <Navigate to="/role-authentication" replace />;
+    }
+    if (userType === "customer") {
+      return <Navigate to="/random-code-input" replace />;
+    }
+  }
+
+  if (location.pathname === "/random-code-input") {
+    if (!userType) {
+      return <Navigate to="/role-authentication" replace />;
+    }
+    if (userType === "owner") {
+      return <Navigate to="/create-business" replace />;
     }
   }
 
@@ -131,9 +160,7 @@ const AppRoutes: React.FC = () => {
           <Route path="/" element={<SplashScreen />} />
           <Route
             path="/auth"
-            element={
-              isAuthenticated ? <Navigate to="/dashboard" replace /> : <Auth />
-            }
+            element={isAuthenticated ? <PostAuthRedirect /> : <Auth />}
           />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -231,7 +258,14 @@ const AppRoutes: React.FC = () => {
               path="/user-profile-detail/:id"
               element={<UserProfileDetail />}
             />
-            <Route path="/appointments-list" element={<AppointmentsList />} />
+            <Route
+              path="/appointments-list"
+              element={
+                <RoleRoute allow="customer">
+                  <AppointmentsList />
+                </RoleRoute>
+              }
+            />
             <Route path="/settings" element={<Settings />} />
 
             <Route

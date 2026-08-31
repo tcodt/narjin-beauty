@@ -6,6 +6,8 @@ export interface ReservationRequest {
   service_id: number;
   employee_id: number;
   time_slot_id: number;
+  /** Required for customer book endpoint */
+  random_code?: string;
 }
 export interface AppointmentDataType {
   date: string;

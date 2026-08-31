@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useUserType } from "../../context/UserTypeContext";
 import { useBusinessMe } from "../../hooks/business/useBusinessMe";
 import { useJoinedBusiness } from "../../context/JoinedBusinessContext";
+import { AxiosError } from "axios";
 
 export const BusinessStatusGuard: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -20,6 +21,8 @@ export const BusinessStatusGuard: React.FC<{ children: React.ReactNode }> = ({
     isError,
     isFetched,
     error,
+    refetch,
+    isFetching,
   } = useBusinessMe();
 
   if (!isAuthenticated) {
@@ -34,10 +37,14 @@ export const BusinessStatusGuard: React.FC<{ children: React.ReactNode }> = ({
     );
   }
 
-  // ---------- CUSTOMER (and unknown role) ----------
-  // Never use /business/me/ for customers. 404 is normal.
+  // ---------- CUSTOMER ----------
   if (!isOwnerFlow) {
-    const openWithoutSalon = ["/join-salon", "/logout", "/user-profile"];
+    const openWithoutSalon = [
+      "/join-salon",
+      "/logout",
+      "/user-profile",
+      "/dashboard",
+    ];
 
     if (
       userType === "customer" &&
@@ -50,8 +57,8 @@ export const BusinessStatusGuard: React.FC<{ children: React.ReactNode }> = ({
     return <>{children}</>;
   }
 
-  // ---------- OWNER ONLY ----------
-  if (isLoading || !isFetched) {
+  // ---------- OWNER ----------
+  if (isLoading || !isFetched || isFetching) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
@@ -62,11 +69,55 @@ export const BusinessStatusGuard: React.FC<{ children: React.ReactNode }> = ({
     );
   }
 
-  const errorStatus = (
-    error as unknown as { response?: { status?: number } } | null
-  )?.response?.status;
+  const ax = error as AxiosError | null;
+  const errorStatus = ax?.response?.status;
+  const isNetworkError =
+    !!error &&
+    (!ax?.response ||
+      ax.code === "ERR_NETWORK" ||
+      ax.message?.includes("Network Error") ||
+      ax.message?.includes("ERR_CONNECTION"));
 
-  const noBusiness = isError || !businessData || errorStatus === 404;
+  // Only a real 404 means "no business yet"
+  const noBusiness = errorStatus === 404 || (!isError && !businessData);
+
+  // Network / 5xx → stay on app, show retry (do NOT send to create-business)
+  if (isError && isNetworkError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-lg font-semibold text-gray-800 dark:text-white">
+          ارتباط با سرور برقرار نشد
+        </p>
+        <p className="max-w-sm text-sm text-gray-500">
+          خطای شبکه است، نه مشکل حساب شما. چند لحظه صبر کنید و دوباره تلاش کنید.
+        </p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="rounded-xl bg-primary-green-600 px-5 py-2.5 text-sm font-semibold text-white"
+        >
+          تلاش مجدد
+        </button>
+      </div>
+    );
+  }
+
+  if (isError && errorStatus && errorStatus >= 500) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-lg font-semibold text-gray-800 dark:text-white">
+          سرور موقتاً در دسترس نیست
+        </p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="rounded-xl bg-primary-green-600 px-5 py-2.5 text-sm font-semibold text-white"
+        >
+          تلاش مجدد
+        </button>
+      </div>
+    );
+  }
 
   if (noBusiness) {
     if (
@@ -78,7 +129,11 @@ export const BusinessStatusGuard: React.FC<{ children: React.ReactNode }> = ({
     return <Navigate to="/create-business" replace />;
   }
 
-  if (!businessData.is_active && location.pathname !== "/waiting-room") {
+  if (
+    businessData &&
+    !businessData.is_active &&
+    location.pathname !== "/waiting-room"
+  ) {
     return <Navigate to="/waiting-room" replace />;
   }
 

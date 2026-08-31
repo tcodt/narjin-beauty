@@ -3,39 +3,33 @@ import { useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { AxiosError } from "axios";
-import { LuCalendarClock, LuStore } from "react-icons/lu";
+import { LuCalendarClock, LuStore, LuCalendarDays } from "react-icons/lu";
+import DateObject from "react-date-object";
+import persian from "react-date-object/calendars/persian";
+import persian_fa from "react-date-object/locales/persian_fa";
 
 import Button from "../../components/Button/Button";
 import PageTitle from "../../components/PageTitle/PageTitle";
 import Dots from "../../components/Dots/Dots";
+import PersianDayPicker from "../../components/PersianDayPicker/PersianDayPicker";
 import { useThemeColor } from "../../context/ThemeColor";
 import { useJoinedBusiness } from "../../context/JoinedBusinessContext";
 import { useUserType } from "../../context/UserTypeContext";
 import { useGetServices } from "../../hooks/services/useGetServices";
 import { useGetAvailableTimes } from "../../hooks/slots/useGetAvailableTimes";
 import { useAddAppointment } from "../../hooks/appointments/useAddAppointment";
+import { getEmployeeLabel, GetEmployeesItem } from "../../types/employees";
 import {
-  getEmployeeDisplayName,
-  getEmployeeLabel,
-  GetEmployeesItem,
-} from "../../types/employees";
+  formatTime,
+  toGregorianISO,
+  toPersianLabel,
+  todayPersian,
+} from "../../utils/date";
 
-function todayISO() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-/** Build employee list from selected service.employee (customer path) */
 function employeesFromService(
-  service: {
-    employee?: unknown;
-  } | null,
+  service: { employee?: unknown } | null,
 ): GetEmployeesItem[] {
   if (!service?.employee) return [];
-
   const raw = service.employee;
   const list = Array.isArray(raw) ? raw : [raw];
 
@@ -49,7 +43,6 @@ function employeesFromService(
           : typeof e.employee_id === "number"
             ? e.employee_id
             : index + 1;
-
       return {
         id,
         skill: typeof e.skill === "string" ? e.skill : "",
@@ -62,7 +55,7 @@ function employeesFromService(
 const Reserve: React.FC = () => {
   const [serviceId, setServiceId] = useState<number | null>(null);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
-  const [selectedDate, setSelectedDate] = useState(todayISO());
+  const [dateValue, setDateValue] = useState<DateObject | null>(todayPersian());
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
 
   const navigate = useNavigate();
@@ -71,6 +64,11 @@ const Reserve: React.FC = () => {
   const { joinedBusiness, hasJoinedBusiness, isReady } = useJoinedBusiness();
   const { userType } = useUserType();
   const isCustomer = userType !== "owner";
+  const randomCode = (joinedBusiness?.random_code ?? "").trim();
+
+  // API = Gregorian | UI = Persian
+  const selectedDate = toGregorianISO(dateValue);
+  const selectedDatePersian = dateValue ? dateValue.format("YYYY/MM/DD") : "—";
 
   const {
     data: services = [],
@@ -82,6 +80,7 @@ const Reserve: React.FC = () => {
     data: availableSlots = [],
     isLoading: slotsLoading,
     isError: slotsError,
+    error: slotsErrorObj,
   } = useGetAvailableTimes(selectedDate, serviceId);
 
   const addAppointmentMutation = useAddAppointment();
@@ -94,8 +93,6 @@ const Reserve: React.FC = () => {
   const employees = useMemo(() => {
     const fromService = employeesFromService(selectedService);
     if (fromService.length) return fromService;
-
-    // Fallback: unique employees mentioned on slots
     const map = new Map<number, GetEmployeesItem>();
     availableSlots.forEach((slot) => {
       if (typeof slot.employee_id === "number") {
@@ -109,11 +106,9 @@ const Reserve: React.FC = () => {
     return Array.from(map.values());
   }, [selectedService, availableSlots]);
 
-  // Auto-select single employee
   useEffect(() => {
-    if (employees.length === 1) {
-      setEmployeeId(employees[0].id);
-    } else if (
+    if (employees.length === 1) setEmployeeId(employees[0].id);
+    else if (
       employeeId &&
       employees.length &&
       !employees.some((e) => e.id === employeeId)
@@ -122,14 +117,29 @@ const Reserve: React.FC = () => {
     }
   }, [employees, employeeId]);
 
-  // Reset slot when date/service changes
   useEffect(() => {
     setSelectedSlotId(null);
   }, [serviceId, selectedDate]);
 
-  const freeSlots = useMemo(() => {
-    return availableSlots.filter((s) => s.is_available !== false);
-  }, [availableSlots]);
+  const freeSlots = useMemo(
+    () => availableSlots.filter((s) => s.is_available !== false),
+    [availableSlots],
+  );
+
+  const selectedSlot = useMemo(
+    () => freeSlots.find((s) => s.id === selectedSlotId) ?? null,
+    [freeSlots, selectedSlotId],
+  );
+
+  useEffect(() => {
+    if (
+      selectedSlot &&
+      typeof selectedSlot.employee_id === "number" &&
+      selectedSlot.employee_id > 0
+    ) {
+      setEmployeeId(selectedSlot.employee_id);
+    }
+  }, [selectedSlot]);
 
   if (!isReady) {
     return (
@@ -150,9 +160,6 @@ const Reserve: React.FC = () => {
         <h2 className="text-lg font-bold text-gray-800 dark:text-white">
           ابتدا به یک سالن متصل شوید
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          برای رزرو، کد سالن را وارد کنید.
-        </p>
         <Button type="button" onClick={() => navigate("/join-salon")}>
           ورود کد کسب‌وکار
         </Button>
@@ -161,20 +168,35 @@ const Reserve: React.FC = () => {
   }
 
   const handleBooking = () => {
-    if (!serviceId || !employeeId || !selectedSlotId) {
-      toast.error("لطفاً سرویس، آرایشگر و زمان را انتخاب کنید");
+    if (!serviceId || !selectedSlotId) {
+      toast.error("لطفاً سرویس و زمان را انتخاب کنید");
+      return;
+    }
+    const finalEmployeeId =
+      employeeId ??
+      (typeof selectedSlot?.employee_id === "number"
+        ? selectedSlot.employee_id
+        : null);
+    if (!finalEmployeeId) {
+      toast.error("آرایشگر مشخص نیست");
+      return;
+    }
+    if (!randomCode) {
+      toast.error("کد سالن یافت نشد");
+      navigate("/join-salon");
       return;
     }
 
     addAppointmentMutation.mutate(
       {
         service_id: serviceId,
-        employee_id: employeeId,
+        employee_id: finalEmployeeId,
         time_slot_id: selectedSlotId,
+        random_code: randomCode,
       },
       {
         onSuccess: () => {
-          toast.success("رزرو شما با موفقیت ثبت شد");
+          toast.success("رزرو با موفقیت ثبت شد");
           queryClient.invalidateQueries({ queryKey: ["appointments"] });
           queryClient.invalidateQueries({ queryKey: ["available-times"] });
           navigate("/appointments-list");
@@ -182,7 +204,7 @@ const Reserve: React.FC = () => {
         onError: (error: unknown) => {
           const ax = error as AxiosError<Record<string, unknown>>;
           const data = ax.response?.data;
-          let message = "ثبت رزرو ناموفق بود.";
+          let message = "ثبت رزرو ناموفق بود";
           if (data && typeof data === "object") {
             if (typeof data.detail === "string") message = data.detail;
             else {
@@ -200,8 +222,12 @@ const Reserve: React.FC = () => {
 
   const canSubmit =
     !!serviceId &&
-    !!employeeId &&
     !!selectedSlotId &&
+    !!(
+      employeeId ||
+      (selectedSlot && typeof selectedSlot.employee_id === "number")
+    ) &&
+    !!randomCode &&
     !addAppointmentMutation.isPending;
 
   return (
@@ -229,7 +255,6 @@ const Reserve: React.FC = () => {
       )}
 
       <div className="space-y-4 rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-800">
-        {/* Service */}
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
             سرویس
@@ -263,15 +288,8 @@ const Reserve: React.FC = () => {
           {servicesError && (
             <p className="mt-1 text-xs text-red-500">خطا در دریافت خدمات</p>
           )}
-          {!servicesLoading && !services.length && (
-            <p className="mt-2 text-sm text-gray-500">
-              خدماتی برای این سالن یافت نشد. اگر پکیج/خدمات در پنل مالک ثبت شده
-              باشد، اینجا نمایش داده می‌شود.
-            </p>
-          )}
         </div>
 
-        {/* Employee */}
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
             آرایشگر
@@ -279,15 +297,18 @@ const Reserve: React.FC = () => {
           <select
             className="primary-input"
             value={employeeId ?? ""}
-            disabled={!serviceId || !employees.length}
+            disabled={!serviceId}
             onChange={(e) => {
               const v = Number(e.target.value);
               setEmployeeId(Number.isFinite(v) && v > 0 ? v : null);
-              setSelectedSlotId(null);
             }}
           >
             <option value="">
-              {!serviceId ? "ابتدا سرویس را انتخاب کنید" : "انتخاب آرایشگر"}
+              {!serviceId
+                ? "ابتدا سرویس را انتخاب کنید"
+                : employees.length
+                  ? "انتخاب آرایشگر"
+                  : "بعد از انتخاب زمان مشخص می‌شود"}
             </option>
             {employees.map((emp) => (
               <option key={emp.id} value={emp.id}>
@@ -295,63 +316,85 @@ const Reserve: React.FC = () => {
               </option>
             ))}
           </select>
-          {serviceId && !employees.length && (
-            <p className="mt-2 text-sm text-gray-500">
-              آرایشگری روی این سرویس ثبت نشده است.
-            </p>
-          )}
         </div>
 
-        {/* Date */}
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
-            تاریخ
+            تاریخ نوبت (شمسی)
           </label>
-          <input
-            type="date"
-            className="primary-input"
-            value={selectedDate}
-            min={todayISO()}
-            onChange={(e) => setSelectedDate(e.target.value)}
+          <PersianDayPicker
+            value={dateValue}
+            onChange={(val) => {
+              setDateValue(val);
+              setSelectedSlotId(null);
+            }}
+            buttonLabel={
+              dateValue ? `تاریخ: ${selectedDatePersian}` : "انتخاب تاریخ شمسی"
+            }
+            buttonIcon={
+              <LuCalendarDays size={18} className="text-emerald-600" />
+            }
+            bgColor="bg-white dark:bg-gray-700"
+            textColor="gray-700"
+            selectedRed={false}
+            minDate={new DateObject({ calendar: persian, locale: persian_fa })}
           />
+          <p className="mt-1.5 text-[11px] text-gray-400">
+            شمسی: <b>{selectedDatePersian}</b>
+            {" · "}
+            API:{" "}
+            <span className="font-mono" dir="ltr">
+              {selectedDate}
+            </span>
+          </p>
         </div>
       </div>
 
-      {/* Slots */}
       <div className="space-y-3">
-        <span className="flex items-center gap-2 text-base font-semibold text-gray-700 dark:text-gray-200">
-          <LuCalendarClock size={22} className={`text-${themeColor}-500`} />
-          زمان‌های آزاد
-        </span>
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-2 text-base font-semibold text-gray-700 dark:text-gray-200">
+            <LuCalendarClock size={22} className="text-emerald-500" />
+            زمان‌های آزاد
+          </span>
+          {dateValue && (
+            <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+              {selectedDatePersian}
+            </span>
+          )}
+        </div>
 
         {!serviceId && (
-          <p className="rounded-xl bg-gray-50 py-6 text-center text-sm text-gray-500 dark:bg-gray-800/50">
+          <p className="rounded-xl bg-gray-50 py-6 text-center text-sm text-gray-500">
             ابتدا یک سرویس انتخاب کنید
           </p>
         )}
-
         {serviceId && slotsLoading && (
           <div className="py-6">
             <Dots />
           </div>
         )}
-
         {serviceId && slotsError && (
-          <p className="rounded-xl bg-rose-50 py-4 text-center text-sm text-rose-600">
-            خطا در دریافت زمان‌های آزاد
-          </p>
+          <div className="rounded-xl bg-rose-50 py-4 text-center text-sm text-rose-600">
+            <p>خطا در دریافت زمان‌های آزاد</p>
+            <p className="mt-1 text-xs opacity-80">
+              {(slotsErrorObj as Error)?.message || "خطای سرور"}
+            </p>
+          </div>
         )}
-
         {serviceId &&
           !slotsLoading &&
           !slotsError &&
           freeSlots.length === 0 && (
-            <p className="rounded-xl bg-gray-50 py-6 text-center text-sm text-gray-500 dark:bg-gray-800/50">
-              برای این تاریخ زمانی آزاد نیست
+            <p className="rounded-xl bg-gray-50 py-6 text-center text-sm text-gray-500">
+              برای «{selectedDatePersian}» زمان آزادی ثبت نشده است.
+              <br />
+              <span className="text-xs text-gray-400">
+                سرویس و تاریخ را با زمان ثبت‌شده توسط سالن یکسان کنید.
+              </span>
             </p>
           )}
 
-        <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {freeSlots.map((slot) => {
             const selected = selectedSlotId === slot.id;
             return (
@@ -359,41 +402,21 @@ const Reserve: React.FC = () => {
                 key={slot.id}
                 type="button"
                 onClick={() => setSelectedSlotId(slot.id)}
-                className={`rounded-2xl border bg-white p-4 text-right shadow-sm transition dark:bg-gray-800 ${
+                className={`rounded-2xl border-2 p-3 text-center transition ${
                   selected
-                    ? `border-${themeColor}-500 ring-2 ring-${themeColor}-200`
-                    : "border-transparent hover:border-gray-200"
+                    ? "border-emerald-600 bg-emerald-200 ring-2 ring-emerald-400 dark:bg-emerald-800/50"
+                    : "border-emerald-300 bg-emerald-50 hover:border-emerald-500 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/25"
                 }`}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm text-gray-600 dark:text-gray-300">
-                    شروع:{" "}
-                    <span className="font-medium text-gray-800 dark:text-white">
-                      {slot.start_time ?? "—"}
-                    </span>
-                  </span>
-                  <span className="text-sm text-gray-600 dark:text-gray-300">
-                    تاریخ:{" "}
-                    <span className="font-medium text-gray-800 dark:text-white">
-                      {slot.date ?? selectedDate}
-                    </span>
-                  </span>
-                </div>
-                {slot.employee_name && (
-                  <p className="mt-1 text-xs text-gray-400">
-                    {getEmployeeDisplayName(slot.employee_name)}
-                  </p>
-                )}
-                <div className="mt-3 flex items-center gap-2">
-                  <span
-                    className={`h-4 w-4 rounded-full border-2 border-${themeColor}-500 ${
-                      selected ? `bg-${themeColor}-500` : "bg-transparent"
-                    }`}
-                  />
-                  <span className="text-xs text-gray-500">
-                    {selected ? "انتخاب شده" : "انتخاب این زمان"}
-                  </span>
-                </div>
+                <span className="mb-1 inline-block rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                  {selected ? "انتخاب‌شده" : "آزاد"}
+                </span>
+                <p className="text-lg font-bold text-emerald-700">
+                  {formatTime(slot.start_time)}
+                </p>
+                <p className="mt-0.5 text-[11px] text-gray-500">
+                  {toPersianLabel(slot.date ?? selectedDate)}
+                </p>
               </button>
             );
           })}

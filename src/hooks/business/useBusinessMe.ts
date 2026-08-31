@@ -1,3 +1,4 @@
+// src/hooks/business/useBusinessMe.ts
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext";
 import { useUserType } from "../../context/UserTypeContext";
@@ -10,8 +11,9 @@ export const useBusinessMe = () => {
   return useQuery({
     queryKey: ["business-me"],
     queryFn: businessMe,
-    // Only owners need this endpoint
     enabled: isAuthenticated && userType === "owner",
-    retry: false,
+    retry: 2,
+    retryDelay: 1500,
+    staleTime: 30_000,
   });
 };

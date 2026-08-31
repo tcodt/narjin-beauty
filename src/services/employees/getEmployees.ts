@@ -2,8 +2,8 @@ import { GetEmployees } from "../../types/employees";
 import api from "../../utils/api";
 
 /**
- * Owner employees only.
- * Prefer /mine/ (scoped to owner's business). Fallback to list.
+ * Owner employees only (scoped by token).
+ * Prefer /mine/, fallback to list endpoint.
  */
 export const getEmployees = async (): Promise<GetEmployees> => {
   try {

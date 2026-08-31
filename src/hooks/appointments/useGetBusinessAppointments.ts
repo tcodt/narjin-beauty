@@ -1,19 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
-import { getAppointments } from "../../services/appointments/getAppointments";
+import { getBusinessAppointments } from "../../services/appointments/getBusinessAppointments";
 import { useAuth } from "../../context/AuthContext";
 import { useUserType } from "../../context/UserTypeContext";
 
-export const useGetAppointments = () => {
+export const useGetBusinessAppointments = () => {
   const { isAuthenticated, user } = useAuth();
   const { userType } = useUserType();
   const isOwner =
     userType === "owner" || !!(user as { is_owner?: boolean })?.is_owner;
 
   return useQuery({
-    queryKey: ["appointments", "mine"],
-    queryFn: getAppointments,
-    enabled: isAuthenticated && !isOwner,
-    refetchInterval: 60_000,
+    queryKey: ["business-appointments"],
+    queryFn: getBusinessAppointments,
+    enabled: isAuthenticated && isOwner,
+    refetchInterval: 60_000, // poll for new requests
     retry: false,
   });
 };

@@ -7,7 +7,7 @@ import { useLocation, useNavigate } from "react-router";
 import { useThemeColor } from "../../context/ThemeColor";
 import { useAcl } from "../../context/AclContext";
 import { useUserType } from "../../context/UserTypeContext";
-import { useBusinessMe } from "../../hooks/business/useBusinessMe";
+import { useAuth } from "../../context/AuthContext";
 
 type Tab = {
   id: string;
@@ -27,10 +27,12 @@ const Navigation: React.FC = () => {
   const { themeColor } = useThemeColor();
   const { role, isBusinessOwner } = useAcl();
   const { userType } = useUserType();
-  const { isSuccess: hasBusiness } = useBusinessMe();
+  const { user } = useAuth();
+
+  const profileOwner = !!(user as { is_owner?: boolean } | null)?.is_owner;
 
   const isOwner =
-    isBusinessOwner || role === "admin" || userType === "owner" || hasBusiness;
+    userType === "owner" || profileOwner || isBusinessOwner || role === "admin";
 
   const tabs: Tab[] = useMemo(
     () => [
@@ -55,7 +57,15 @@ const Navigation: React.FC = () => {
         path: "/reserve",
         icon: <LuNotebookText size={20} />,
         match: (p) => p.startsWith("/reserve"),
-        customerOnly: true, // ← owners never see this
+        customerOnly: true,
+      },
+      {
+        id: "my-appointments",
+        label: "نوبت‌ها",
+        path: "/appointments-list",
+        icon: <LuNotebookText size={20} />,
+        match: (p) => p.startsWith("/appointments"),
+        customerOnly: true, // only customers
       },
       {
         id: "services",
@@ -71,14 +81,6 @@ const Navigation: React.FC = () => {
         path: "/manage-employees",
         icon: <MdPeopleOutline size={22} />,
         match: (p) => p.startsWith("/manage-employees"),
-        ownerOnly: true,
-      },
-      {
-        id: "appointments",
-        label: "رزروها",
-        path: "/appointments-list",
-        icon: <LuNotebookText size={20} />,
-        match: (p) => p.startsWith("/appointments"),
         ownerOnly: true,
       },
     ],
