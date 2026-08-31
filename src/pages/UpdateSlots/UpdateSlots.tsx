@@ -94,10 +94,9 @@ const UpdateSlots: React.FC = () => {
 
   const handleDateChange = (
     value: any,
-    _weekDay: string,
-    day: number,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _month: string
+    _weekDay?: string,
+    day?: number,
+    // _month?: string,
   ) => {
     setDateValue(value);
 
@@ -106,7 +105,7 @@ const UpdateSlots: React.FC = () => {
     const monthNumber =
       typeof value?.month?.number === "number" ? value.month.number : 0;
 
-    setDateParts({ year, month: monthNumber, day });
+    setDateParts({ year, month: monthNumber, day: day ?? 0 });
   };
 
   const handleTimeChange = (value: any, hour: number, minute: number) => {
@@ -176,7 +175,7 @@ const UpdateSlots: React.FC = () => {
           console.error("خطا در بروزرسانی زمان:", error);
           toast.error("خطایی رخ داد. لطفاً دوباره تلاش کنید.", { id: toastId });
         },
-      }
+      },
     );
   };
 

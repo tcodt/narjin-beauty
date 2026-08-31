@@ -49,14 +49,14 @@ const AddWorkingTime: React.FC = () => {
   const handleDayValue = (
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     val: any,
-    weekDay: string,
-    day: number,
-    month: string
+    weekDay?: string,
+    day?: number,
+    month?: string,
   ) => {
     setDayValue(val);
-    setWeekDay(weekDay);
-    setDay(day);
-    setMonth(month);
+    setWeekDay(weekDay ?? null);
+    setDay(day ?? null);
+    setMonth(month ?? null);
   };
 
   const handleWorkingTime = () => {

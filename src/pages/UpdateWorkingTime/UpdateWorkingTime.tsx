@@ -84,13 +84,13 @@ const UpdateWorkingTime: React.FC = () => {
 
   const handleDayValueChange = (
     val: any,
-    weekDay: string,
-    day: number
-    // month: string
+    weekDay?: string,
+    day?: number,
+    // month?: string,
   ) => {
     setDayValue(val);
-    setWeekDay(weekDay);
-    setDay(day);
+    setWeekDay(weekDay ?? null);
+    setDay(day ?? null);
     // setMonth(month);
   };
 
@@ -131,7 +131,7 @@ const UpdateWorkingTime: React.FC = () => {
           console.error("خطا در بروزرسانی زمان کاری:", error);
           toast.error("خطایی رخ داد. لطفاً دوباره تلاش کنید.", { id: toastId });
         },
-      }
+      },
     );
   };
 
