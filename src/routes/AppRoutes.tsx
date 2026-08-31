@@ -53,6 +53,7 @@ import { BusinessStatusGuard } from "../components/BusinessStatusGuard/BusinessS
 import { RoleRoute } from "./RoleRoute";
 import JoinSalon from "../pages/JoinSalon/JoinSalon";
 import Dots from "../components/Dots/Dots";
+import ManageAppointments from "../pages/ManageAppointments/ManageAppointments";
 
 /* -------------------------------------------------------------------------- */
 /* Network wrapper                                                            */
@@ -225,6 +226,15 @@ const AppRoutes: React.FC = () => {
               element={
                 <RoleRoute allow="customer">
                   <HomePage />
+                </RoleRoute>
+              }
+            />
+
+            <Route
+              path="/manage-appointments"
+              element={
+                <RoleRoute allow="owner">
+                  <ManageAppointments />
                 </RoleRoute>
               }
             />

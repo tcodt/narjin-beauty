@@ -1,6 +1,7 @@
-import React, { ReactNode } from "react";
+import React, { ReactNode, useMemo } from "react";
 import DatePicker, { DateObject } from "react-multi-date-picker";
 import persian from "react-date-object/calendars/persian";
+import gregorian from "react-date-object/calendars/gregorian";
 import persian_fa from "react-date-object/locales/persian_fa";
 import "react-multi-date-picker/styles/layouts/mobile.css";
 
@@ -23,12 +24,13 @@ interface PersianDayPickerType {
   selectedRed?: boolean;
   minDate?: Date | DateObject;
   maxDate?: Date | DateObject;
-  /** Optional list of allowed dates (YYYY/MM/DD or YYYY-MM-DD) */
+  highlightedDates?: string[];
   enabledDates?: string[];
+  lockToHighlighted?: boolean;
   helperText?: string;
 }
 
-function toComparableKey(date: DateObject): string {
+function toPersianKey(date: DateObject): string {
   try {
     return date.format("YYYY/MM/DD");
   } catch {
@@ -36,15 +38,45 @@ function toComparableKey(date: DateObject): string {
   }
 }
 
-function normalizeEnabledSet(enabledDates?: string[]): Set<string> | null {
-  if (!enabledDates || enabledDates.length === 0) return null;
+function toGregorianISOFromPicker(date: DateObject): string {
+  try {
+    const g = new DateObject(date).convert(gregorian);
+    const y = g.year;
+    const m = String(g.month.number).padStart(2, "0");
+    const d = String(g.day).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  } catch {
+    return "";
+  }
+}
+
+function buildHighlightSet(dates?: string[]): Set<string> {
   const set = new Set<string>();
-  for (const raw of enabledDates) {
+  if (!dates?.length) return set;
+
+  for (const raw of dates) {
     if (!raw) continue;
     const t = raw.trim();
     set.add(t);
     set.add(t.replace(/-/g, "/"));
     set.add(t.replace(/\//g, "-"));
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+      try {
+        const [y, m, d] = t.split("-").map(Number);
+        const g = new DateObject({
+          calendar: gregorian,
+          year: y,
+          month: m,
+          day: d,
+        });
+        const p = g.convert(persian).setLocale(persian_fa).format("YYYY/MM/DD");
+        set.add(p);
+        set.add(p.replace(/\//g, "-"));
+      } catch {
+        /* ignore */
+      }
+    }
   }
   return set;
 }
@@ -59,10 +91,19 @@ const PersianDayPicker: React.FC<PersianDayPickerType> = ({
   selectedRed = true,
   minDate,
   maxDate,
+  highlightedDates,
   enabledDates,
+  lockToHighlighted = false,
   helperText,
 }) => {
-  const enabledSet = normalizeEnabledSet(enabledDates);
+  const highlightSet = useMemo(
+    () =>
+      buildHighlightSet(
+        highlightedDates?.length ? highlightedDates : enabledDates,
+      ),
+    [highlightedDates, enabledDates],
+  );
+  const hasHighlights = highlightSet.size > 0;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleChange = (val: any) => {
@@ -86,35 +127,29 @@ const PersianDayPicker: React.FC<PersianDayPickerType> = ({
         minDate={minDate}
         maxDate={maxDate}
         mapDays={({ date, selectedDate }) => {
-          const key = toComparableKey(date);
+          const persianKey = toPersianKey(date);
+          const gregKey = toGregorianISOFromPicker(date);
           const isSelected =
-            selectedDate && key === toComparableKey(selectedDate as DateObject);
+            !!selectedDate &&
+            persianKey === toPersianKey(selectedDate as DateObject);
 
-          if (enabledSet) {
-            const allowed =
-              enabledSet.has(key) || enabledSet.has(key.replace(/\//g, "-"));
+          const isHighlighted =
+            hasHighlights &&
+            (highlightSet.has(persianKey) ||
+              highlightSet.has(gregKey) ||
+              highlightSet.has(persianKey.replace(/\//g, "-")));
 
-            if (!allowed) {
-              return {
-                disabled: true,
-                style: { color: "#c4c4c4", opacity: 0.45 },
-              };
-            }
-
+          if (hasHighlights && lockToHighlighted && !isHighlighted) {
             return {
-              style: {
-                backgroundColor: isSelected ? "#059669" : "#d1fae5",
-                color: isSelected ? "#fff" : "#065f46",
-                borderRadius: "10px",
-                fontWeight: 700,
-              },
+              disabled: true,
+              style: { color: "#c4c4c4", opacity: 0.4 },
             };
           }
 
-          if (isSelected && selectedRed) {
+          if (isSelected) {
             return {
               style: {
-                backgroundColor: "#e11d48",
+                backgroundColor: selectedRed ? "#e11d48" : "#059669",
                 color: "#fff",
                 borderRadius: "10px",
                 fontWeight: 700,
@@ -122,13 +157,14 @@ const PersianDayPicker: React.FC<PersianDayPickerType> = ({
             };
           }
 
-          if (isSelected && !selectedRed) {
+          if (isHighlighted) {
             return {
               style: {
-                backgroundColor: "#059669",
-                color: "#fff",
+                backgroundColor: "#a7f3d0",
+                color: "#065f46",
                 borderRadius: "10px",
                 fontWeight: 700,
+                boxShadow: "inset 0 0 0 1px #34d399",
               },
             };
           }

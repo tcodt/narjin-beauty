@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { IoNotificationsOutline, IoSettingsOutline } from "react-icons/io5";
 import { useNavigate } from "react-router";
+import toast from "react-hot-toast";
 import SidebarToggleButton from "../SidebarToggleButton/SidebarToggleButton";
 import CustomModal from "../CustomModal/CustomModal";
 import ColorPicker from "../ColorPicker/ColorPicker";
@@ -8,68 +9,114 @@ import { useThemeColor } from "../../context/ThemeColor";
 import DarkModeToggle from "../DarkModeToggle/DarkModeToggle";
 import { motion, AnimatePresence } from "framer-motion";
 import { logoMap } from "../../utils/logoMap";
-import { useAuth } from "../../context/AuthContext";
-import { useUserType } from "../../context/UserTypeContext";
-import { useAcl } from "../../context/AclContext";
-import { useGetAppointments } from "../../hooks/appointments/useGetAppointments";
-import { useGetBusinessAppointments } from "../../hooks/appointments/useGetBusinessAppointments";
+import { useGetNotifications } from "../../hooks/notifications/useGetNotifications";
+import { useUnreadCount } from "../../hooks/notifications/useUnreadCount";
+import { useMarkNotificationRead } from "../../hooks/notifications/useMarkNotificationRead";
+import { useMarkAllNotificationsRead } from "../../hooks/notifications/useMarkAllNotificationsRead";
+import { useDeleteNotification } from "../../hooks/notifications/useDeleteNotification";
+import { AppNotification } from "../../types/notifications";
+import Dots from "../Dots/Dots";
 
-type NotifItem = {
-  id: string;
-  title: string;
-  description: string;
-  href?: string;
-  tone?: "info" | "success" | "warning";
-};
+function typeTone(type: string): "info" | "success" | "warning" | "danger" {
+  if (type.includes("confirm") || type === "appointment_confirmed")
+    return "success";
+  if (
+    type.includes("cancel") ||
+    type.includes("expired") ||
+    type.includes("trial")
+  )
+    return "danger";
+  if (
+    type.includes("new_appointment") ||
+    type.includes("created") ||
+    type.includes("reminder")
+  )
+    return "warning";
+  return "info";
+}
+
+function formatRelative(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const diff = Date.now() - d.getTime();
+    const mins = Math.floor(diff / 60_000);
+    if (mins < 1) return "همین الان";
+    if (mins < 60) return `${mins} دقیقه پیش`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours} ساعت پیش`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days} روز پیش`;
+    return d.toLocaleDateString("fa-IR");
+  } catch {
+    return "";
+  }
+}
 
 const TopBar: React.FC = () => {
   const [isSettingOpen, setIsSettingOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [expandedNotif, setExpandedNotif] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const { themeColor } = useThemeColor();
   const logoSrc = logoMap[themeColor] || "/images/logo-main.jpg";
   const navigate = useNavigate();
 
-  const { user } = useAuth();
-  const { userType } = useUserType();
-  const { isBusinessOwner, role } = useAcl();
+  const { data: notifications = [], isLoading: notifsLoading } =
+    useGetNotifications();
+  const { data: unreadFromApi } = useUnreadCount();
+  const markRead = useMarkNotificationRead();
+  const markAllRead = useMarkAllNotificationsRead();
+  const removeNotif = useDeleteNotification();
 
-  const isOwner =
-    userType === "owner" ||
-    !!(user as { is_owner?: boolean })?.is_owner ||
-    isBusinessOwner ||
-    role === "admin";
+  const unreadCount = useMemo(() => {
+    if (typeof unreadFromApi === "number") return unreadFromApi;
+    return notifications.filter((n) => !n.is_read).length;
+  }, [unreadFromApi, notifications]);
 
-  const { data: myAppointments = [] } = useGetAppointments();
-  const { data: businessAppointments = [] } = useGetBusinessAppointments();
+  const sorted = useMemo(() => {
+    return [...notifications].sort((a, b) => {
+      if (a.is_read !== b.is_read) return a.is_read ? 1 : -1;
+      return (
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    });
+  }, [notifications]);
 
-  const notifications = useMemo<NotifItem[]>(() => {
-    if (isOwner) {
-      return businessAppointments
-        .filter((a) => a.status === "pending")
-        .slice(0, 20)
-        .map((a) => ({
-          id: `biz-${a.id}`,
-          title: "درخواست رزرو جدید",
-          description: `${a.customer_name || "مشتری"} — ${a.service_name || "سرویس"} در ${a.date || "—"} ساعت ${a.start_time || "—"}`,
-          href: `/view-appointment/${a.id}`,
-          tone: "warning" as const,
-        }));
+  const handleOpenNotif = async (n: AppNotification) => {
+    setExpandedId((prev) => (prev === n.id ? null : n.id));
+
+    if (!n.is_read) {
+      try {
+        await markRead.mutateAsync(n.id);
+      } catch {
+        /* silent */
+      }
     }
 
-    return myAppointments
-      .filter((a) => a.status === "confirmed")
-      .slice(0, 20)
-      .map((a) => ({
-        id: `my-${a.id}`,
-        title: "رزرو شما تأیید شد",
-        description: `${a.service?.name || a.employee_name || "نوبت"} — وضعیت: ${a.get_status || "تأیید شده"}`,
-        href: `/view-appointment/${a.id}`,
-        tone: "success" as const,
-      }));
-  }, [isOwner, businessAppointments, myAppointments]);
+    if (n.appointment) {
+      setIsNotifOpen(false);
+      navigate(`/view-appointment/${n.appointment}`);
+    }
+  };
 
-  const unreadCount = notifications.length;
+  const handleMarkAll = async () => {
+    try {
+      await markAllRead.mutateAsync();
+      toast.success("همه اعلان‌ها خوانده شد");
+    } catch {
+      toast.error("خواندن همه اعلان‌ها ناموفق بود");
+    }
+  };
+
+  const handleDelete = async (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await removeNotif.mutateAsync(id);
+      toast.success("اعلان حذف شد");
+    } catch {
+      toast.error("حذف اعلان ناموفق بود");
+    }
+  };
 
   return (
     <motion.header
@@ -150,65 +197,115 @@ const TopBar: React.FC = () => {
       <CustomModal
         isOpen={isNotifOpen}
         onClose={() => setIsNotifOpen(false)}
-        title={isOwner ? "درخواست‌های رزرو" : "اعلان‌های نوبت"}
+        title="اعلان‌ها"
       >
-        <div className="flex max-h-[60vh] flex-col gap-2 overflow-y-auto">
-          {notifications.length === 0 ? (
-            <p className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-              {isOwner
-                ? "درخواست رزرو جدیدی نیست"
-                : "اعلانی برای نوبت‌های تأییدشده نیست"}
-            </p>
-          ) : (
-            notifications.map((notif) => (
-              <button
-                key={notif.id}
-                type="button"
-                onClick={() => {
-                  if (notif.href) {
-                    setIsNotifOpen(false);
-                    navigate(notif.href);
-                  } else {
-                    setExpandedNotif(
-                      expandedNotif === notif.id ? null : notif.id,
-                    );
-                  }
-                }}
-                className={`rounded-2xl border border-transparent bg-gray-50 p-3 text-right transition hover:border-gray-200 dark:bg-gray-700/60 dark:hover:border-gray-600 border-s-4 ${
-                  notif.tone === "success"
-                    ? "border-s-emerald-500"
-                    : notif.tone === "warning"
-                      ? "border-s-amber-500"
-                      : `border-s-${themeColor}-500`
-                }`}
-              >
-                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                  {notif.title}
-                </h4>
-                <AnimatePresence initial={false}>
-                  {expandedNotif === notif.id && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <p className="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
-                        {notif.description}
-                      </p>
-                      {notif.href && (
-                        <span
-                          className={`mt-2 block text-xs font-semibold text-${themeColor}-600`}
-                        >
-                          مشاهده جزئیات
-                        </span>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </button>
-            ))
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <p className="text-xs text-gray-500">
+            {unreadCount > 0
+              ? `${unreadCount} خوانده‌نشده`
+              : "همه خوانده شده‌اند"}
+          </p>
+          {unreadCount > 0 && (
+            <button
+              type="button"
+              onClick={handleMarkAll}
+              disabled={markAllRead.isPending}
+              className={`text-xs font-semibold text-${themeColor}-600 disabled:opacity-50`}
+            >
+              {markAllRead.isPending ? "…" : "خواندن همه"}
+            </button>
           )}
+        </div>
+
+        <div className="flex max-h-[60vh] flex-col gap-2 overflow-y-auto">
+          {notifsLoading && (
+            <div className="py-8">
+              <Dots />
+            </div>
+          )}
+
+          {!notifsLoading && sorted.length === 0 && (
+            <p className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+              اعلانی وجود ندارد
+            </p>
+          )}
+
+          {sorted.map((notif) => {
+            const tone = typeTone(notif.notification_type);
+            const expanded = expandedId === notif.id;
+            return (
+              <div
+                key={notif.id}
+                className={`rounded-2xl border border-transparent bg-gray-50 text-right transition dark:bg-gray-700/60 border-s-4 ${
+                  tone === "success"
+                    ? "border-s-emerald-500"
+                    : tone === "warning"
+                      ? "border-s-amber-500"
+                      : tone === "danger"
+                        ? "border-s-rose-500"
+                        : `border-s-${themeColor}-500`
+                } ${notif.is_read ? "opacity-70" : ""}`}
+              >
+                <button
+                  type="button"
+                  onClick={() => handleOpenNotif(notif)}
+                  className="w-full p-3 text-right"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        {!notif.is_read && (
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-rose-500" />
+                        )}
+                        <h4 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">
+                          {notif.title}
+                        </h4>
+                      </div>
+                      <p className="mt-0.5 text-[10px] text-gray-400">
+                        {formatRelative(notif.created_at)}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="حذف اعلان"
+                      onClick={(e) => handleDelete(notif.id, e)}
+                      className="shrink-0 rounded-lg px-2 py-1 text-[10px] text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                    >
+                      حذف
+                    </button>
+                  </div>
+
+                  <AnimatePresence initial={false}>
+                    {expanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                          {notif.message}
+                        </p>
+                        {notif.appointment ? (
+                          <span
+                            className={`mt-2 block text-xs font-semibold text-${themeColor}-600`}
+                          >
+                            مشاهده نوبت #{notif.appointment}
+                          </span>
+                        ) : null}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {!expanded && notif.message ? (
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                      {notif.message}
+                    </p>
+                  ) : null}
+                </button>
+              </div>
+            );
+          })}
         </div>
       </CustomModal>
     </motion.header>

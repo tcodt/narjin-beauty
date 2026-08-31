@@ -17,6 +17,7 @@ import { useJoinedBusiness } from "../../context/JoinedBusinessContext";
 import { useUserType } from "../../context/UserTypeContext";
 import { useGetServices } from "../../hooks/services/useGetServices";
 import { useGetAvailableTimes } from "../../hooks/slots/useGetAvailableTimes";
+import { useGetAvailableDates } from "../../hooks/slots/useGetAvailableDates";
 import { useAddAppointment } from "../../hooks/appointments/useAddAppointment";
 import { getEmployeeLabel, GetEmployeesItem } from "../../types/employees";
 import {
@@ -37,7 +38,6 @@ function toPositiveInt(value: unknown): number | null {
   return null;
 }
 
-/** Never invent employee ids — API will reject fake pks. */
 function employeesFromService(
   service: { employee?: unknown } | null,
 ): GetEmployeesItem[] {
@@ -111,6 +111,9 @@ const Reserve: React.FC = () => {
     isError: slotsError,
     error: slotsErrorObj,
   } = useGetAvailableTimes(selectedDate, serviceId);
+
+  const { data: availableDates = [], isFetching: datesFetching } =
+    useGetAvailableDates(serviceId, 60);
 
   const addAppointmentMutation = useAddAppointment();
 
@@ -203,7 +206,6 @@ const Reserve: React.FC = () => {
       return;
     }
 
-    // Must be real slot_id from API (e.g. 3), never index fallback
     const slotPk = toPositiveInt(selectedSlotId);
     if (slotPk == null) {
       toast.error("زمان معتبر انتخاب نشده است");
@@ -216,7 +218,6 @@ const Reserve: React.FC = () => {
       return;
     }
 
-    // API available-times often has NO employee_id — take from service employees
     const finalEmployeeId =
       toPositiveInt(employeeId) ?? toPositiveInt(selectedSlot.employee_id);
 
@@ -233,8 +234,6 @@ const Reserve: React.FC = () => {
       return;
     }
 
-    // Payload for POST /reservations/{random_code}/book/
-    // time_slot_id = slot_id from available-times (e.g. 3)
     addAppointmentMutation.mutate(
       {
         service_id: serviceId,
@@ -247,6 +246,8 @@ const Reserve: React.FC = () => {
           toast.success("رزرو با موفقیت ثبت شد");
           queryClient.invalidateQueries({ queryKey: ["appointments"] });
           queryClient.invalidateQueries({ queryKey: ["available-times"] });
+          queryClient.invalidateQueries({ queryKey: ["available-dates"] });
+          queryClient.invalidateQueries({ queryKey: ["notifications"] });
           navigate("/appointments-list");
         },
         onError: (error: unknown) => {
@@ -264,6 +265,14 @@ const Reserve: React.FC = () => {
       toPositiveInt(selectedSlot.employee_id) != null) &&
     !!randomCode &&
     !addAppointmentMutation.isPending;
+
+  const dateHelper = !serviceId
+    ? "ابتدا سرویس را انتخاب کنید تا روزهای دارای نوبت آزاد سبز شوند."
+    : datesFetching
+      ? "در حال پیدا کردن روزهای دارای زمان آزاد…"
+      : availableDates.length
+        ? `${availableDates.length} روز دارای زمان آزاد (سبز) در ۶۰ روز آینده.`
+        : "در ۶۰ روز آینده زمان آزادی برای این سرویس پیدا نشد.";
 
   return (
     <div className="mx-auto max-w-lg space-y-6 pb-10">
@@ -323,9 +332,6 @@ const Reserve: React.FC = () => {
           {servicesError && (
             <p className="mt-1 text-xs text-red-500">خطا در دریافت خدمات</p>
           )}
-          <p className="mt-1.5 text-[11px] leading-5 text-gray-400">
-            همان سرویسی را انتخاب کنید که سالن برایش زمان آزاد ثبت کرده است.
-          </p>
         </div>
 
         <div>
@@ -354,12 +360,6 @@ const Reserve: React.FC = () => {
               </option>
             ))}
           </select>
-          {serviceId && employees.length === 0 && (
-            <p className="mt-1 text-xs text-amber-600">
-              پاسخ available-times فیلد employee ندارد؛ سرویس باید در پنل owner
-              به آرایشگر وصل باشد.
-            </p>
-          )}
         </div>
 
         <div>
@@ -383,11 +383,10 @@ const Reserve: React.FC = () => {
             textColor="gray-700"
             selectedRed={false}
             minDate={new DateObject({ calendar: persian, locale: persian_fa })}
+            highlightedDates={availableDates}
+            lockToHighlighted={false}
+            helperText={dateHelper}
           />
-          <p className="mt-1.5 text-[11px] leading-5 text-gray-400">
-            تاریخ را همان روزی بگذارید که سالن زمان آزاد ثبت کرده. بعد از انتخاب
-            سرویس، زمان‌های همان روز لود می‌شوند.
-          </p>
           <p className="mt-1.5 text-[11px] text-gray-400">
             شمسی: <b>{selectedDatePersian}</b>
             {" · "}
@@ -435,11 +434,9 @@ const Reserve: React.FC = () => {
           !slotsError &&
           freeSlots.length === 0 && (
             <div className="rounded-xl bg-gray-50 py-6 text-center text-sm text-gray-500 dark:bg-gray-800/60">
-              <p>
-                برای «{selectedDatePersian}» زمان آزادی با شناسه معتبر یافت نشد.
-              </p>
-              <p className="mt-2 text-xs leading-5 text-gray-400">
-                سرویس و تاریخ را با اسلات ثبت‌شده توسط سالن یکی کنید.
+              <p>برای «{selectedDatePersian}» زمان آزادی یافت نشد.</p>
+              <p className="mt-2 text-xs text-gray-400">
+                روزهای سبز در تقویم دارای زمان آزاد هستند.
               </p>
             </div>
           )}

@@ -222,7 +222,7 @@ const AdminDashboardView: React.FC<{
       <SectionTitle
         action={
           <Link
-            to="/appointments-list"
+            to="/manage-appointments"
             className={`text-sm font-medium text-${themeColor}-500 hover:opacity-70`}
           >
             همه رزروها
@@ -243,7 +243,8 @@ const AdminDashboardView: React.FC<{
       {data.appointments?.map((appointment) => (
         <Link
           key={appointment.id}
-          to={`/view-appointment/${appointment.id}`}
+          // to={`/view-appointment/${appointment.id}`}
+          to="/manage-appointments"
           className="col-span-full rounded-2xl bg-white p-4 shadow-sm transition hover:opacity-80 dark:bg-gray-700"
         >
           <h4 className="flex items-center justify-between gap-2 text-base font-semibold text-gray-700 dark:text-gray-300">
@@ -328,7 +329,7 @@ const AdminDashboardView: React.FC<{
           { to: "/manage-services", label: "خدمات" },
           { to: "/manage-employees", label: "آرایشگران" },
           { to: "/available-times", label: "زمان‌ها" },
-          { to: "/appointments-list", label: "رزروها" },
+          { to: "/manage-appointments", label: "رزروها" },
         ].map((item) => (
           <Link
             key={item.to}

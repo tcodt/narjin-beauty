@@ -124,6 +124,14 @@ const Sidebar: React.FC = () => {
       label: "لیست رزرو ها",
       path: "/appointments-list",
       requiredPermission: null,
+      customerOnly: true,
+    },
+    {
+      icon: <HiClipboardList size={20} />,
+      label: "مدیریت نوبت‌ها",
+      path: "/manage-appointments",
+      requiredPermission: null,
+      ownerOnly: true,
     },
     {
       icon: <FaSliders size={20} />,

@@ -36,21 +36,15 @@ function pickStartTime(
   return undefined;
 }
 
-/**
- * CRITICAL: never invent id (index+1).
- * Backend book needs real TimeSlot pk.
- * Your API returns: { slot_id, start_time, end_time }
- */
 function normalizeSlot(
   raw: unknown,
   fallbackDate: string,
   keyFallback?: string,
 ): AvailableSlot | null {
   if (!raw || typeof raw !== "object") return null;
-
   const s = raw as Record<string, unknown>;
 
-  // order matters — API uses slot_id
+  // API returns slot_id (e.g. { slot_id: 3, start_time: "18:00" })
   const id =
     toPositiveInt(s.slot_id) ??
     toPositiveInt(s.id) ??
@@ -94,15 +88,7 @@ function normalizeSlot(
     service_id: serviceId ?? undefined,
     employee_id: employeeId ?? undefined,
     employee_name:
-      typeof s.employee_name === "string"
-        ? s.employee_name
-        : s.employee && typeof s.employee === "object"
-          ? String(
-              (s.employee as Record<string, unknown>).name ??
-                (s.employee as Record<string, unknown>).full_name ??
-                "",
-            ) || undefined
-          : undefined,
+      typeof s.employee_name === "string" ? s.employee_name : undefined,
   };
 }
 
@@ -128,17 +114,14 @@ export const getAvailableTimes = async (
     });
 
     const data = response.data;
-    if (import.meta.env.DEV) {
-      console.log("[available-times]", { date, serviceId, data });
-    }
+    // if (import.meta.env.DEV) {
+    //   console.log("[available-times]", { date, serviceId, data });
+    // }
 
-    if (Array.isArray(data)) {
-      return collectFromArray(data, date);
-    }
+    if (Array.isArray(data)) return collectFromArray(data, date);
 
     if (data && typeof data === "object") {
       const obj = data as Record<string, unknown>;
-
       for (const key of [
         "slots",
         "results",
@@ -150,7 +133,6 @@ export const getAvailableTimes = async (
           return collectFromArray(obj[key] as unknown[], date);
         }
       }
-
       const fromMap: AvailableSlot[] = [];
       for (const [key, value] of Object.entries(obj)) {
         if (value && typeof value === "object") {
