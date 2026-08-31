@@ -26,6 +26,18 @@ import {
   todayPersian,
 } from "../../utils/date";
 
+function toPositiveInt(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.trunc(value);
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value);
+    if (Number.isFinite(n) && n > 0) return Math.trunc(n);
+  }
+  return null;
+}
+
+/** Never invent employee ids — API will reject fake pks. */
 function employeesFromService(
   service: { employee?: unknown } | null,
 ): GetEmployeesItem[] {
@@ -34,15 +46,16 @@ function employeesFromService(
   const list = Array.isArray(raw) ? raw : [raw];
 
   return list
-    .map((emp, index) => {
+    .map((emp) => {
       if (!emp || typeof emp !== "object") return null;
       const e = emp as Record<string, unknown>;
       const id =
-        typeof e.id === "number"
-          ? e.id
-          : typeof e.employee_id === "number"
-            ? e.employee_id
-            : index + 1;
+        toPositiveInt(e.id) ??
+        toPositiveInt(e.employee_id) ??
+        (e.user && typeof e.user === "object"
+          ? toPositiveInt((e.user as Record<string, unknown>).id)
+          : null);
+      if (id == null) return null;
       return {
         id,
         skill: typeof e.skill === "string" ? e.skill : "",
@@ -50,6 +63,23 @@ function employeesFromService(
       } satisfies GetEmployeesItem;
     })
     .filter(Boolean) as GetEmployeesItem[];
+}
+
+function parseApiError(error: unknown, fallback: string): string {
+  const ax = error as AxiosError<Record<string, unknown> | string>;
+  const data = ax.response?.data;
+  if (typeof data === "string" && data.trim()) return data;
+  if (data && typeof data === "object") {
+    if (typeof data.detail === "string") return data.detail;
+    if (typeof (data as { message?: string }).message === "string") {
+      return (data as { message: string }).message;
+    }
+    const first = Object.values(data).find((v) => Array.isArray(v) && v[0]) as
+      | string[]
+      | undefined;
+    if (first?.[0]) return String(first[0]);
+  }
+  return fallback;
 }
 
 const Reserve: React.FC = () => {
@@ -66,7 +96,6 @@ const Reserve: React.FC = () => {
   const isCustomer = userType !== "owner";
   const randomCode = (joinedBusiness?.random_code ?? "").trim();
 
-  // API = Gregorian | UI = Persian
   const selectedDate = toGregorianISO(dateValue);
   const selectedDatePersian = dateValue ? dateValue.format("YYYY/MM/DD") : "—";
 
@@ -93,13 +122,15 @@ const Reserve: React.FC = () => {
   const employees = useMemo(() => {
     const fromService = employeesFromService(selectedService);
     if (fromService.length) return fromService;
+
     const map = new Map<number, GetEmployeesItem>();
     availableSlots.forEach((slot) => {
-      if (typeof slot.employee_id === "number") {
-        map.set(slot.employee_id, {
-          id: slot.employee_id,
+      const empId = toPositiveInt(slot.employee_id);
+      if (empId != null) {
+        map.set(empId, {
+          id: empId,
           skill: "",
-          user: slot.employee_name || `کارمند ${slot.employee_id}`,
+          user: slot.employee_name || `کارمند ${empId}`,
         });
       }
     });
@@ -107,8 +138,9 @@ const Reserve: React.FC = () => {
   }, [selectedService, availableSlots]);
 
   useEffect(() => {
-    if (employees.length === 1) setEmployeeId(employees[0].id);
-    else if (
+    if (employees.length === 1) {
+      setEmployeeId(employees[0].id);
+    } else if (
       employeeId &&
       employees.length &&
       !employees.some((e) => e.id === employeeId)
@@ -122,7 +154,10 @@ const Reserve: React.FC = () => {
   }, [serviceId, selectedDate]);
 
   const freeSlots = useMemo(
-    () => availableSlots.filter((s) => s.is_available !== false),
+    () =>
+      availableSlots.filter(
+        (s) => s.is_available !== false && toPositiveInt(s.id) != null,
+      ),
     [availableSlots],
   );
 
@@ -132,13 +167,8 @@ const Reserve: React.FC = () => {
   );
 
   useEffect(() => {
-    if (
-      selectedSlot &&
-      typeof selectedSlot.employee_id === "number" &&
-      selectedSlot.employee_id > 0
-    ) {
-      setEmployeeId(selectedSlot.employee_id);
-    }
+    const empId = toPositiveInt(selectedSlot?.employee_id);
+    if (empId != null) setEmployeeId(empId);
   }, [selectedSlot]);
 
   if (!isReady) {
@@ -168,30 +198,48 @@ const Reserve: React.FC = () => {
   }
 
   const handleBooking = () => {
-    if (!serviceId || !selectedSlotId) {
-      toast.error("لطفاً سرویس و زمان را انتخاب کنید");
+    if (!serviceId) {
+      toast.error("لطفاً سرویس را انتخاب کنید");
       return;
     }
+
+    // Must be real slot_id from API (e.g. 3), never index fallback
+    const slotPk = toPositiveInt(selectedSlotId);
+    if (slotPk == null) {
+      toast.error("زمان معتبر انتخاب نشده است");
+      return;
+    }
+
+    if (!selectedSlot || selectedSlot.id !== slotPk) {
+      toast.error("اسلات انتخاب‌شده معتبر نیست؛ دوباره زمان را انتخاب کنید");
+      setSelectedSlotId(null);
+      return;
+    }
+
+    // API available-times often has NO employee_id — take from service employees
     const finalEmployeeId =
-      employeeId ??
-      (typeof selectedSlot?.employee_id === "number"
-        ? selectedSlot.employee_id
-        : null);
-    if (!finalEmployeeId) {
-      toast.error("آرایشگر مشخص نیست");
+      toPositiveInt(employeeId) ?? toPositiveInt(selectedSlot.employee_id);
+
+    if (finalEmployeeId == null) {
+      toast.error(
+        "آرایشگر مشخص نیست. سرویس باید به آرایشگر وصل باشد یا اسلات employee_id داشته باشد.",
+      );
       return;
     }
+
     if (!randomCode) {
       toast.error("کد سالن یافت نشد");
       navigate("/join-salon");
       return;
     }
 
+    // Payload for POST /reservations/{random_code}/book/
+    // time_slot_id = slot_id from available-times (e.g. 3)
     addAppointmentMutation.mutate(
       {
         service_id: serviceId,
         employee_id: finalEmployeeId,
-        time_slot_id: selectedSlotId,
+        time_slot_id: slotPk,
         random_code: randomCode,
       },
       {
@@ -202,19 +250,7 @@ const Reserve: React.FC = () => {
           navigate("/appointments-list");
         },
         onError: (error: unknown) => {
-          const ax = error as AxiosError<Record<string, unknown>>;
-          const data = ax.response?.data;
-          let message = "ثبت رزرو ناموفق بود";
-          if (data && typeof data === "object") {
-            if (typeof data.detail === "string") message = data.detail;
-            else {
-              const first = Object.values(data).find(
-                (v) => Array.isArray(v) && v[0],
-              ) as string[] | undefined;
-              if (first?.[0]) message = String(first[0]);
-            }
-          }
-          toast.error(message);
+          toast.error(parseApiError(error, "ثبت رزرو ناموفق بود"));
         },
       },
     );
@@ -222,11 +258,10 @@ const Reserve: React.FC = () => {
 
   const canSubmit =
     !!serviceId &&
-    !!selectedSlotId &&
-    !!(
-      employeeId ||
-      (selectedSlot && typeof selectedSlot.employee_id === "number")
-    ) &&
+    toPositiveInt(selectedSlotId) != null &&
+    !!selectedSlot &&
+    (toPositiveInt(employeeId) != null ||
+      toPositiveInt(selectedSlot.employee_id) != null) &&
     !!randomCode &&
     !addAppointmentMutation.isPending;
 
@@ -288,6 +323,9 @@ const Reserve: React.FC = () => {
           {servicesError && (
             <p className="mt-1 text-xs text-red-500">خطا در دریافت خدمات</p>
           )}
+          <p className="mt-1.5 text-[11px] leading-5 text-gray-400">
+            همان سرویسی را انتخاب کنید که سالن برایش زمان آزاد ثبت کرده است.
+          </p>
         </div>
 
         <div>
@@ -308,7 +346,7 @@ const Reserve: React.FC = () => {
                 ? "ابتدا سرویس را انتخاب کنید"
                 : employees.length
                   ? "انتخاب آرایشگر"
-                  : "بعد از انتخاب زمان مشخص می‌شود"}
+                  : "آرایشگر به این سرویس وصل نیست"}
             </option>
             {employees.map((emp) => (
               <option key={emp.id} value={emp.id}>
@@ -316,6 +354,12 @@ const Reserve: React.FC = () => {
               </option>
             ))}
           </select>
+          {serviceId && employees.length === 0 && (
+            <p className="mt-1 text-xs text-amber-600">
+              پاسخ available-times فیلد employee ندارد؛ سرویس باید در پنل owner
+              به آرایشگر وصل باشد.
+            </p>
+          )}
         </div>
 
         <div>
@@ -325,7 +369,8 @@ const Reserve: React.FC = () => {
           <PersianDayPicker
             value={dateValue}
             onChange={(val) => {
-              setDateValue(val);
+              const next = Array.isArray(val) ? (val[0] ?? null) : val;
+              setDateValue(next);
               setSelectedSlotId(null);
             }}
             buttonLabel={
@@ -339,6 +384,10 @@ const Reserve: React.FC = () => {
             selectedRed={false}
             minDate={new DateObject({ calendar: persian, locale: persian_fa })}
           />
+          <p className="mt-1.5 text-[11px] leading-5 text-gray-400">
+            تاریخ را همان روزی بگذارید که سالن زمان آزاد ثبت کرده. بعد از انتخاب
+            سرویس، زمان‌های همان روز لود می‌شوند.
+          </p>
           <p className="mt-1.5 text-[11px] text-gray-400">
             شمسی: <b>{selectedDatePersian}</b>
             {" · "}
@@ -364,7 +413,7 @@ const Reserve: React.FC = () => {
         </div>
 
         {!serviceId && (
-          <p className="rounded-xl bg-gray-50 py-6 text-center text-sm text-gray-500">
+          <p className="rounded-xl bg-gray-50 py-6 text-center text-sm text-gray-500 dark:bg-gray-800/60">
             ابتدا یک سرویس انتخاب کنید
           </p>
         )}
@@ -374,10 +423,10 @@ const Reserve: React.FC = () => {
           </div>
         )}
         {serviceId && slotsError && (
-          <div className="rounded-xl bg-rose-50 py-4 text-center text-sm text-rose-600">
+          <div className="rounded-xl bg-rose-50 py-4 text-center text-sm text-rose-600 dark:bg-rose-950/40">
             <p>خطا در دریافت زمان‌های آزاد</p>
             <p className="mt-1 text-xs opacity-80">
-              {(slotsErrorObj as Error)?.message || "خطای سرور"}
+              {parseApiError(slotsErrorObj, "خطای سرور")}
             </p>
           </div>
         )}
@@ -385,13 +434,14 @@ const Reserve: React.FC = () => {
           !slotsLoading &&
           !slotsError &&
           freeSlots.length === 0 && (
-            <p className="rounded-xl bg-gray-50 py-6 text-center text-sm text-gray-500">
-              برای «{selectedDatePersian}» زمان آزادی ثبت نشده است.
-              <br />
-              <span className="text-xs text-gray-400">
-                سرویس و تاریخ را با زمان ثبت‌شده توسط سالن یکسان کنید.
-              </span>
-            </p>
+            <div className="rounded-xl bg-gray-50 py-6 text-center text-sm text-gray-500 dark:bg-gray-800/60">
+              <p>
+                برای «{selectedDatePersian}» زمان آزادی با شناسه معتبر یافت نشد.
+              </p>
+              <p className="mt-2 text-xs leading-5 text-gray-400">
+                سرویس و تاریخ را با اسلات ثبت‌شده توسط سالن یکی کنید.
+              </p>
+            </div>
           )}
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -411,7 +461,7 @@ const Reserve: React.FC = () => {
                 <span className="mb-1 inline-block rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-semibold text-white">
                   {selected ? "انتخاب‌شده" : "آزاد"}
                 </span>
-                <p className="text-lg font-bold text-emerald-700">
+                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
                   {formatTime(slot.start_time)}
                 </p>
                 <p className="mt-0.5 text-[11px] text-gray-500">

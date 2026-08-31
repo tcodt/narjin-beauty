@@ -9,15 +9,44 @@ const weekDays = ["ش", "ی", "د", "س", "چ", "پ", "ج"];
 interface PersianDayPickerType {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onChange: (value: any, weekDay: string, day: number, month: string) => void;
+  onChange: (
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    value: any,
+    weekDay?: string,
+    day?: number,
+    month?: string,
+  ) => void;
   buttonLabel?: string;
   buttonIcon?: ReactNode;
   bgColor?: string;
   textColor?: string;
-  /** Highlight selected day in red */
   selectedRed?: boolean;
   minDate?: Date | DateObject;
+  maxDate?: Date | DateObject;
+  /** Optional list of allowed dates (YYYY/MM/DD or YYYY-MM-DD) */
+  enabledDates?: string[];
+  helperText?: string;
+}
+
+function toComparableKey(date: DateObject): string {
+  try {
+    return date.format("YYYY/MM/DD");
+  } catch {
+    return "";
+  }
+}
+
+function normalizeEnabledSet(enabledDates?: string[]): Set<string> | null {
+  if (!enabledDates || enabledDates.length === 0) return null;
+  const set = new Set<string>();
+  for (const raw of enabledDates) {
+    if (!raw) continue;
+    const t = raw.trim();
+    set.add(t);
+    set.add(t.replace(/-/g, "/"));
+    set.add(t.replace(/\//g, "-"));
+  }
+  return set;
 }
 
 const PersianDayPicker: React.FC<PersianDayPickerType> = ({
@@ -29,9 +58,18 @@ const PersianDayPicker: React.FC<PersianDayPickerType> = ({
   textColor = "gray-700",
   selectedRed = true,
   minDate,
+  maxDate,
+  enabledDates,
+  helperText,
 }) => {
+  const enabledSet = normalizeEnabledSet(enabledDates);
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleChange = (val: any) => {
+    if (!val) {
+      onChange(val);
+      return;
+    }
     onChange(val, val?.weekDay?.name, val?.day, val?.month?.name);
   };
 
@@ -46,11 +84,32 @@ const PersianDayPicker: React.FC<PersianDayPickerType> = ({
         value={value}
         onChange={handleChange}
         minDate={minDate}
+        maxDate={maxDate}
         mapDays={({ date, selectedDate }) => {
+          const key = toComparableKey(date);
           const isSelected =
-            selectedDate &&
-            date.format?.("YYYY/MM/DD") ===
-              (selectedDate as DateObject)?.format?.("YYYY/MM/DD");
+            selectedDate && key === toComparableKey(selectedDate as DateObject);
+
+          if (enabledSet) {
+            const allowed =
+              enabledSet.has(key) || enabledSet.has(key.replace(/\//g, "-"));
+
+            if (!allowed) {
+              return {
+                disabled: true,
+                style: { color: "#c4c4c4", opacity: 0.45 },
+              };
+            }
+
+            return {
+              style: {
+                backgroundColor: isSelected ? "#059669" : "#d1fae5",
+                color: isSelected ? "#fff" : "#065f46",
+                borderRadius: "10px",
+                fontWeight: 700,
+              },
+            };
+          }
 
           if (isSelected && selectedRed) {
             return {
@@ -62,6 +121,18 @@ const PersianDayPicker: React.FC<PersianDayPickerType> = ({
               },
             };
           }
+
+          if (isSelected && !selectedRed) {
+            return {
+              style: {
+                backgroundColor: "#059669",
+                color: "#fff",
+                borderRadius: "10px",
+                fontWeight: 700,
+              },
+            };
+          }
+
           return {};
         }}
         render={(_value, openCalendar) => (
@@ -78,6 +149,11 @@ const PersianDayPicker: React.FC<PersianDayPickerType> = ({
           </button>
         )}
       />
+      {helperText ? (
+        <p className="mt-1.5 text-[11px] leading-5 text-gray-400">
+          {helperText}
+        </p>
+      ) : null}
     </div>
   );
 };
