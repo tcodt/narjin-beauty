@@ -10,12 +10,13 @@ import { useRemoveWorkingTime } from "../../hooks/working-time/useRemoveWorkingT
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import PageTitle from "../../components/PageTitle/PageTitle";
-import { useThemeColor } from "../../context/ThemeColor";
+import { ThemeColorName, useThemeColor } from "../../context/ThemeColor";
 import { useAcl } from "../../context/AclContext";
 import Dropdown from "../../components/Dropdown/Dropdown";
 import AddWorkingTime from "../AddWorkingTime/AddWorkingTime";
 import { motion } from "framer-motion";
 import { useDisplayWorkingTime } from "../../hooks/working-time/useDisplayWorkingTime";
+import { themeText } from "../../utils/themeClasses";
 
 const parentVariants = {
   hidden: { opacity: 0 },
@@ -182,7 +183,7 @@ const WorkingTime: React.FC = () => {
               </div>
 
               <button
-                className={`text-xl text-${themeColor}-500 absolute top-6 left-3 hover:text-${themeColor}-600 transition`}
+                className={`text-xl text-${themeColor}-500 absolute top-6 left-3 hover:${themeText[themeColor as ThemeColorName]} transition`}
                 onClick={() => handleUpdateWorkingTime(time.id)}
               >
                 <FaPencil />

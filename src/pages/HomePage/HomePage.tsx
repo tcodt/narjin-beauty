@@ -5,7 +5,7 @@ import OfferCarousel from "../../components/OfferCarousel/OfferCarousel";
 import CommentForm from "../../components/CommentForm/CommentForm";
 import { useGetProfile } from "../../hooks/profile/useGetProfile";
 import { useGetComments } from "../../hooks/comments/useGetComments";
-import { useThemeColor } from "../../context/ThemeColor";
+import { ThemeColorName, useThemeColor } from "../../context/ThemeColor";
 import { motion } from "framer-motion";
 import { FaStar, FaMapMarkerAlt, FaPhone, FaStore } from "react-icons/fa";
 import { LuCalendarClock } from "react-icons/lu";
@@ -16,6 +16,7 @@ import { useGetServices } from "../../hooks/services/useGetServices";
 import { useDisplayPackages } from "../../hooks/packages/useDisplayPackages";
 import { filterByBusinessId } from "../../utils/filterByJoinedBusiness";
 import Button from "../../components/Button/Button";
+import { themeText } from "../../utils/themeClasses";
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = {
   salon: "سالن زیبایی",
@@ -115,7 +116,7 @@ const HomePage: React.FC = () => {
               </p>
             </div>
             <span
-              className={`rounded-full bg-${themeColor}-50 px-3 py-1 text-xs font-semibold text-${themeColor}-600 dark:bg-${themeColor}-900/30 dark:text-${themeColor}-300`}
+              className={`rounded-full bg-${themeColor}-50 px-3 py-1 text-xs font-semibold ${themeText[themeColor as ThemeColorName]} dark:bg-${themeColor}-900/30 dark:text-${themeColor}-300`}
             >
               {joinedBusiness.random_code}
             </span>
@@ -213,7 +214,9 @@ const HomePage: React.FC = () => {
                   <span className="text-gray-500 dark:text-gray-400">
                     {service.duration ? `${service.duration} دقیقه` : "—"}
                   </span>
-                  <span className={`font-bold text-${themeColor}-600`}>
+                  <span
+                    className={`font-bold ${themeText[themeColor as ThemeColorName]}`}
+                  >
                     {formatPrice(service.price)} تومان
                   </span>
                 </div>
@@ -258,7 +261,7 @@ const HomePage: React.FC = () => {
                     {pkg.name}
                   </h4>
                   <p
-                    className={`mt-1 text-sm font-bold text-${themeColor}-600`}
+                    className={`mt-1 text-sm font-bold ${themeText[themeColor as ThemeColorName]}`}
                   >
                     {formatPrice(pkg.total_price)} تومان
                   </p>

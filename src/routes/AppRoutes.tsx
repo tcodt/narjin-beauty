@@ -23,7 +23,7 @@ import MainLayout from "../layout/MainLayout";
 import AppointmentsList from "../pages/AppointmentsList/AppointmentsList";
 import Settings from "../pages/Settings/Settings";
 import ManageEmployees from "../pages/ManageEmployees/ManageEmployees";
-import NotFound from "../pages/NotFound/NotFound";
+import NotFound from "../../NotFound/NotFound";
 import OfflinePage from "../pages/OfflinePage/OfflinePage";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import ViewAppointment from "../pages/ViewAppointment/ViewAppointment";

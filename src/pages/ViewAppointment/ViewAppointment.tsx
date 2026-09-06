@@ -8,7 +8,7 @@ import { RiScissors2Line } from "react-icons/ri";
 import { TbDeviceMobile } from "react-icons/tb";
 import { BsTelephone } from "react-icons/bs";
 import { useAppointmentById } from "../../hooks/appointments/useAppointmentById";
-import { useThemeColor } from "../../context/ThemeColor";
+import { ThemeColorName, useThemeColor } from "../../context/ThemeColor";
 import Button from "../../components/Button/Button";
 import CustomModal from "../../components/CustomModal/CustomModal";
 import { useWallet } from "../../context/WalletContext";
@@ -16,6 +16,7 @@ import {
   getEmployeeDisplayName,
   getEmployeePhone,
 } from "../../types/employees";
+import { themeGradientBar, themeText } from "../../utils/themeClasses";
 
 const statusStyles = (status?: string) => {
   switch (status) {
@@ -145,7 +146,7 @@ const ViewAppointment: React.FC = () => {
       {/* Hero card */}
       <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-md dark:border-gray-700 dark:bg-gray-800">
         <div
-          className={`bg-gradient-to-l from-${themeColor}-600 to-${themeColor}-500 px-5 py-5 text-white`}
+          className={`bg-gradient-to-l ${themeGradientBar[themeColor]} to-${themeColor}-500 px-5 py-5 text-white`}
         >
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -273,7 +274,7 @@ const ViewAppointment: React.FC = () => {
               </p>
               <Link
                 to="/appointments-list"
-                className={`mt-3 inline-block text-sm font-semibold text-${themeColor}-600 underline`}
+                className={`mt-3 inline-block text-sm font-semibold ${themeText[themeColor as ThemeColorName]} underline`}
               >
                 لیست نوبت‌ها
               </Link>

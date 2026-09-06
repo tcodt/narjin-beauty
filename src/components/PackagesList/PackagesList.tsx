@@ -15,6 +15,7 @@ import { useJoinedBusiness } from "../../context/JoinedBusinessContext";
 import { useUserType } from "../../context/UserTypeContext";
 import { filterByBusinessId } from "../../utils/filterByJoinedBusiness";
 import { useMemo } from "react";
+import { themeText } from "../../utils/themeClasses";
 
 const PackagesList: React.FC = () => {
   const { data: packages, isError, error } = useDisplayPackages();
@@ -123,7 +124,7 @@ const PackagesList: React.FC = () => {
                     </div>
 
                     <p
-                      className={`text-${themeColor}-600 dark:text-${themeColor}-400 text-left text-base`}
+                      className={`${themeText[themeColor]} dark:text-${themeColor}-400 text-left text-base`}
                     >
                       {formatPrice(item?.total_price)} تومان
                     </p>

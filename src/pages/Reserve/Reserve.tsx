@@ -12,7 +12,7 @@ import Button from "../../components/Button/Button";
 import PageTitle from "../../components/PageTitle/PageTitle";
 import Dots from "../../components/Dots/Dots";
 import PersianDayPicker from "../../components/PersianDayPicker/PersianDayPicker";
-import { useThemeColor } from "../../context/ThemeColor";
+import { ThemeColorName, useThemeColor } from "../../context/ThemeColor";
 import { useJoinedBusiness } from "../../context/JoinedBusinessContext";
 import { useUserType } from "../../context/UserTypeContext";
 import { useGetServices } from "../../hooks/services/useGetServices";
@@ -26,6 +26,7 @@ import {
   toPersianLabel,
   todayPersian,
 } from "../../utils/date";
+import { themeText } from "../../utils/themeClasses";
 
 function toPositiveInt(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value) && value > 0) {
@@ -186,7 +187,7 @@ const Reserve: React.FC = () => {
     return (
       <div className="mx-auto max-w-md space-y-4 py-12 text-center">
         <div
-          className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-${themeColor}-50 text-${themeColor}-600`}
+          className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-${themeColor}-50 ${themeText[themeColor as ThemeColorName]}`}
         >
           <LuStore size={28} />
         </div>
@@ -291,7 +292,7 @@ const Reserve: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate("/join-salon")}
-            className={`text-xs font-semibold text-${themeColor}-600`}
+            className={`text-xs font-semibold ${themeText[themeColor as ThemeColorName]}`}
           >
             تغییر سالن
           </button>

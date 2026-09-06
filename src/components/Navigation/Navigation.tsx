@@ -8,6 +8,7 @@ import { useThemeColor } from "../../context/ThemeColor";
 import { useAcl } from "../../context/AclContext";
 import { useUserType } from "../../context/UserTypeContext";
 import { useAuth } from "../../context/AuthContext";
+import { themeText } from "../../utils/themeClasses";
 
 type Tab = {
   id: string;
@@ -122,7 +123,7 @@ const Navigation: React.FC = () => {
               onClick={() => navigate(tab.path)}
               className={`relative flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-2 transition-all ${
                 active
-                  ? `text-${themeColor}-600 dark:text-${themeColor}-400`
+                  ? `${themeText[themeColor]} dark:text-${themeColor}-400`
                   : "text-gray-400 dark:text-gray-500"
               }`}
             >

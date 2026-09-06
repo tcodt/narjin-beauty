@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { IoCamera } from "react-icons/io5";
 import CustomModal from "../../components/CustomModal/CustomModal";
 import Button from "../../components/Button/Button";
@@ -23,41 +23,44 @@ import { useRemovePackage } from "../../hooks/packages/useRemovePackage";
 import { useUpdatePackage } from "../../hooks/packages/useUpdatePackage";
 import PageTitle from "../../components/PageTitle/PageTitle";
 import { useThemeColor } from "../../context/ThemeColor";
-import { useGetBusinesses } from "../../hooks/business/useGetBusinesses";
 import Dropdown from "../../components/Dropdown/Dropdown";
 import { motion } from "framer-motion";
+import { useBusinessMe } from "../../hooks/business/useBusinessMe";
+import {
+  mediaUrl,
+  themeBgSolid,
+  themeText,
+  themeBorder,
+} from "../../utils/themeClasses";
+import { LuPackage } from "react-icons/lu";
 
 const parentVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: {
-      staggerChildren: 0.2,
-      delayChildren: 0.1,
-    },
+    transition: { staggerChildren: 0.08, delayChildren: 0.05 },
   },
 };
 
 const childrenVariants = {
-  hidden: { opacity: 0, x: 100 },
-  visible: {
-    opacity: 1,
-    x: 0,
-  },
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0 },
 };
 
 const Packages: React.FC = () => {
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [isAddOpen, setIsAddOpen] = useState<boolean>(false);
-  const [isDeleteOpen, setIsDeleteOpen] = useState<boolean>(false);
-  const [isUpdateOpen, setIsUpdateOpen] = useState<boolean>(false);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isUpdateOpen, setIsUpdateOpen] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<PackagesType | null>(
     null,
   );
   const navigate = useNavigate();
+  const { themeColor } = useThemeColor();
+  const { data: myBusiness } = useBusinessMe();
+  const myBusinessId = myBusiness?.id ?? 0;
 
-  // Form جداگانه برای افزودن
   const addForm = useForm<AddPackage>({
     defaultValues: {
       business_id: 0,
@@ -68,7 +71,6 @@ const Packages: React.FC = () => {
     },
   });
 
-  // Form جداگانه برای بروزرسانی
   const updateForm = useForm<UpdatePackage>({
     defaultValues: {
       business_id: 0,
@@ -84,230 +86,236 @@ const Packages: React.FC = () => {
     handleSubmit: addHandleSubmit,
     formState: { errors: addErrors },
     reset: addReset,
+    watch: addWatch,
+    setValue: addSetValue,
   } = addForm;
 
   const {
     register: updateRegister,
     handleSubmit: updateHandleSubmit,
-    formState: { errors: updateErrors },
+    // formState: { errors: updateErrors },
     reset: updateReset,
+    watch: updateWatch,
+    setValue: updateSetValue,
   } = updateForm;
 
-  const { data: packages, isPending, isError, error } = useGetPackages();
+  const { data: packages = [], isPending, isError, error } = useGetPackages();
   const { data: servicesData = [] } = useGetServices();
-  const { data: businessData } = useGetBusinesses();
   const addPackageMutation = useAddPackage();
   const removePackageMutation = useRemovePackage();
   const updatePackageMutation = useUpdatePackage();
   const queryClient = useQueryClient();
-  const { themeColor } = useThemeColor();
 
   const MAX_SIZE = 5 * 1024 * 1024;
-  const ALLOWED_TYPES = ["image/jpeg", "image/png"];
+  const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > MAX_SIZE) {
-        toast.error("حجم فایل بیش از حد مجاز است");
-        return;
-      }
-      if (!ALLOWED_TYPES.includes(file.type)) {
-        toast.error("فرمت فایل مجاز نیست");
-        return;
-      }
-      setImage(file);
-      setPreview(URL.createObjectURL(file));
+    if (!file) return;
+    if (file.size > MAX_SIZE) {
+      toast.error("حجم فایل بیش از ۵ مگابایت است");
+      return;
     }
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast.error("فقط JPG / PNG / WEBP");
+      return;
+    }
+    setImage(file);
+    setPreview(URL.createObjectURL(file));
+  };
+
+  const toggleServiceId = (
+    id: number,
+    current: number[],
+    set: (ids: number[]) => void,
+  ) => {
+    if (current.includes(id)) set(current.filter((x) => x !== id));
+    else set([...current, id]);
   };
 
   const handleAddPackage = (data: AddPackage) => {
-    if (!data.business_id || data.business_id === 0) {
-      toast.error("لطفا یک بیزینس معتبر انتخاب کنید");
+    if (!myBusinessId) {
+      toast.error("کسب‌وکار شما یافت نشد");
       return;
     }
-
-    if (data.service_ids.length === 0 || data.service_ids.includes(0)) {
-      toast.error("لطفا حداقل یک سرویس معتبر انتخاب کنید");
+    const serviceIds = (data.service_ids ?? []).map(Number).filter(Boolean);
+    if (!serviceIds.length) {
+      toast.error("حداقل یک سرویس انتخاب کنید");
       return;
     }
-
     if (!image) {
-      toast.error("لطفا یک عکس انتخاب کنید");
+      toast.error("تصویر پکیج الزامی است");
       return;
     }
 
-    if (data.service_ids.length === 0) {
-      toast.error("لطفا حداقل یک سرویس انتخاب کنید");
-      return;
-    }
-
-    if (!businessData) return;
-
-    const toastId = toast.loading("درحال افزودن پکیج");
-
+    const toastId = toast.loading("در حال افزودن پکیج...");
     const formData = new FormData();
-    formData.append("business_id", data.business_id?.toString() || "1");
+    formData.append("business_id", String(myBusinessId));
     formData.append("name", data.name);
     formData.append("desc", data.desc);
     formData.append("total_price", data.total_price.replace(/,/g, ""));
     formData.append("image", image);
-
-    // اصلاح: بدون [] و map(Number) برای consistency
-    (data.service_ids ?? []).map(Number).forEach((id) => {
-      formData.append("service_ids", id.toString());
-    });
-
-    //! Log for bugs
-    console.log("Sending data:", {
-      business_id: data.business_id,
-      service_ids: data.service_ids,
-      hasImage: !!image,
-    });
+    serviceIds.forEach((id) => formData.append("service_ids", String(id)));
 
     addPackageMutation.mutate(formData, {
       onSuccess: () => {
-        toast.success("پکیج با موفقیت اضافه شد", { id: toastId });
+        toast.success("پکیج اضافه شد", { id: toastId });
         queryClient.invalidateQueries({ queryKey: ["packages"] });
         addReset();
         setImage(null);
         setPreview(null);
         setIsAddOpen(false);
       },
-      onError: (error) => {
-        const axiosError = error as AxiosError;
-        console.error("Add Package Error:", axiosError);
-        toast.error("خطا در افزودن پکیج!", { id: toastId });
+      onError: (err) => {
+        toast.error("خطا در افزودن پکیج", { id: toastId });
+        console.error(err);
       },
     });
   };
-
-  useEffect(() => {
-    return () => {
-      if (preview) URL.revokeObjectURL(preview);
-    };
-  }, [preview]);
-
-  useEffect(() => {
-    if (selectedPackage) {
-      updateReset({
-        business_id: selectedPackage.business?.id || 0,
-        name: selectedPackage.name,
-        desc: selectedPackage.desc,
-        total_price: selectedPackage.total_price,
-        service_ids:
-          selectedPackage.services?.map((service) => service.id) || [],
-      });
-      setPreview(
-        selectedPackage.image
-          ? `https://queuingprojectapi.pythonanywhere.com${selectedPackage.image}`
-          : null,
-      );
-      // setPreview(
-      //   selectedPackage.image
-      //     ? `https://api.narjin.ir${selectedPackage.image}`
-      //     : null
-      // );
-    } else {
-      updateReset({
-        business_id: 0,
-        name: "",
-        desc: "",
-        total_price: "",
-        service_ids: [],
-      });
-      setPreview(null);
-    }
-  }, [selectedPackage, updateReset]);
-
-  if (isPending) return <Loading />;
-  if (isError) {
-    console.error(error);
-    toast.error("خطا در دریافت پکیج‌ها");
-    return (
-      <div className="text-center p-6 text-red-500">خطا در دریافت پکیج‌ها</div>
-    );
-  }
 
   const handleRemovePackage = (id: number) => {
-    const removePkgId = toast.loading("درحال حذف پکیج...");
+    const toastId = toast.loading("در حال حذف...");
     removePackageMutation.mutate(id, {
       onSuccess: () => {
-        toast.success("پکیج مورد نظر با موفقیت حذف شد", { id: removePkgId });
+        toast.success("حذف شد", { id: toastId });
         queryClient.invalidateQueries({ queryKey: ["packages"] });
       },
-      onError: (error) => {
-        toast.error("خطا در حذف پکیج!", { id: removePkgId });
-        const axiosError = error as AxiosError;
-        console.log(axiosError);
-      },
+      onError: () => toast.error("خطا در حذف", { id: toastId }),
     });
   };
 
-  const handleUpdatePackage = (pkg: any) => {
-    updateReset(pkg);
+  const openUpdate = (pkg: PackagesType) => {
     setSelectedPackage(pkg);
+    updateReset({
+      business_id: pkg.business?.id || myBusinessId,
+      name: pkg.name,
+      desc: pkg.desc,
+      total_price: pkg.total_price,
+      service_ids: pkg.services?.map((s) => s.id) ?? [],
+    });
+    setPreview(pkg.image ? mediaUrl(pkg.image) : null);
+    setImage(null);
+    setIsUpdateOpen(true);
   };
 
   const handleUpdateSubmit = (data: UpdatePackage) => {
-    if (!selectedPackage) {
-      toast.error("هیچ پکیجی انتخاب نشده است");
+    if (!selectedPackage) return;
+    const serviceIds = (data.service_ids ?? []).map(Number).filter(Boolean);
+    if (!serviceIds.length) {
+      toast.error("حداقل یک سرویس انتخاب کنید");
       return;
     }
 
-    if (!image && !selectedPackage.image) {
-      toast.error("لطفا یک تصویر انتخاب کنید");
-      return;
-    }
-
-    if (data.service_ids.length === 0) {
-      toast.error("لطفا حداقل یک سرویس انتخاب کنید");
-      return;
-    }
-
-    const toastId = toast.loading("درحال بروزرسانی پکیج...");
-
-    const formDataUpdate = new FormData();
-    formDataUpdate.append("business_id", data.business_id.toString() || "1");
-    formDataUpdate.append("name", data.name);
-    formDataUpdate.append("desc", data.desc);
-    formDataUpdate.append("total_price", data.total_price.replace(/,/g, ""));
-    if (image) {
-      formDataUpdate.append("image", image);
-    }
-
-    // اصلاح: بدون [] و map(Number)
-    (data.service_ids ?? []).map(Number).forEach((id) => {
-      formDataUpdate.append("service_ids", id.toString());
-    });
+    const toastId = toast.loading("در حال بروزرسانی...");
+    const formData = new FormData();
+    formData.append(
+      "business_id",
+      String(selectedPackage.business?.id || myBusinessId),
+    );
+    formData.append("name", data.name);
+    formData.append("desc", data.desc);
+    formData.append("total_price", data.total_price.replace(/,/g, ""));
+    if (image) formData.append("image", image);
+    serviceIds.forEach((id) => formData.append("service_ids", String(id)));
 
     updatePackageMutation.mutate(
-      { id: selectedPackage.id, formData: formDataUpdate },
+      { id: selectedPackage.id, formData },
       {
         onSuccess: () => {
-          toast.success("پکیج با موفقیت بروزرسانی شد", { id: toastId });
+          toast.success("بروزرسانی شد", { id: toastId });
           queryClient.invalidateQueries({ queryKey: ["packages"] });
           updateReset();
           setImage(null);
           setPreview(null);
           setSelectedPackage(null);
+          setIsUpdateOpen(false);
         },
-        onError: (error) => {
-          const axiosError = error as AxiosError;
-          toast.error("خطا در بروزرسانی پکیج!", { id: toastId });
-          console.log("An error occured: ", axiosError);
+        onError: (err) => {
+          toast.error("خطا در بروزرسانی", { id: toastId });
+          console.error(err as AxiosError);
         },
       },
     );
   };
 
-  return (
-    <div className="space-y-6">
-      {!packages?.length && (
-        <div className="text-center p-6 text-gray-500">هیچ پکیجی یافت نشد!</div>
-      )}
+  if (isPending) return <Loading />;
+  if (isError) {
+    console.error(error);
+    toast.error("خطا در دریافت پکیج‌ها");
+  }
 
-      {/* Add Package Modal  */}
+  const addServiceIds = (addWatch("service_ids") as number[]) || [];
+  const updateServiceIds = (updateWatch("service_ids") as number[]) || [];
+
+  const ServicePicker = ({
+    selected,
+    onToggle,
+  }: {
+    selected: number[];
+    onToggle: (id: number) => void;
+  }) => (
+    <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-xl border border-gray-200 p-3 dark:border-gray-600">
+      {servicesData.length === 0 && (
+        <p className="text-xs text-gray-400">سرویسی ثبت نشده است</p>
+      )}
+      {servicesData.map((s: any) => {
+        const active = selected.includes(s.id);
+        return (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => onToggle(s.id)}
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+              active
+                ? `${themeBgSolid[themeColor]} border-transparent text-white`
+                : "border-gray-200 bg-white text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+            }`}
+          >
+            {s.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const ImagePicker = () => (
+    <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 p-6 transition hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800">
+      {preview ? (
+        <img
+          src={preview}
+          alt=""
+          className="h-32 w-full rounded-xl object-cover"
+        />
+      ) : (
+        <>
+          <IoCamera className={`text-3xl ${themeText[themeColor]}`} />
+          <span className="text-xs text-gray-500">انتخاب تصویر پکیج</span>
+        </>
+      )}
+      <input
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleImageChange}
+      />
+    </label>
+  );
+
+  return (
+    <div className="space-y-6 pb-10">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <PageTitle title="پکیج‌ها" />
+        <Dropdown
+          isAddOpen={isAddOpen}
+          setIsAddOpen={setIsAddOpen}
+          isUpdateOpen={isUpdateOpen}
+          setIsUpdateOpen={setIsUpdateOpen}
+          isDeleteOpen={isDeleteOpen}
+          setIsDeleteOpen={setIsDeleteOpen}
+        />
+      </div>
+
+      {/* ADD */}
       <CustomModal
         isOpen={isAddOpen}
         onClose={() => {
@@ -320,340 +328,111 @@ const Packages: React.FC = () => {
       >
         <form
           onSubmit={addHandleSubmit(handleAddPackage)}
-          className="flex flex-col gap-6"
+          className="flex flex-col gap-4"
         >
+          <ImagePicker />
+          <input
+            type="text"
+            className="primary-input"
+            placeholder="نام پکیج"
+            {...addRegister("name", { required: "نام الزامی است" })}
+          />
+          {addErrors.name && (
+            <p className="text-sm text-red-500">{addErrors.name.message}</p>
+          )}
+          <textarea
+            className="primary-input min-h-[5rem] h-auto"
+            placeholder="توضیحات"
+            {...addRegister("desc", { required: "توضیحات الزامی است" })}
+          />
+          <input
+            type="text"
+            className="primary-input"
+            placeholder="قیمت کل (تومان)"
+            {...addRegister("total_price", { required: "قیمت الزامی است" })}
+          />
           <div>
-            <input
-              type="text"
-              className="primary-input"
-              placeholder="نام پکیج"
-              {...addRegister("name", { required: "نام پکیج الزامی است" })}
-            />
-            {addErrors.name && (
-              <p className="text-red-500 text-sm mt-1">
-                {addErrors.name.message}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <textarea
-              className="primary-input"
-              placeholder="توضیحات"
-              {...addRegister("desc", { required: "توضیحات الزامی است" })}
-            ></textarea>
-            {addErrors.desc && (
-              <p className="text-red-500 text-sm mt-1">
-                {addErrors.desc.message}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <input
-              type="text"
-              className="primary-input"
-              placeholder="قیمت"
-              {...addRegister("total_price", {
-                required: "قیمت الزامی است",
-                onChange: (e) => {
-                  const value = e.target.value.replace(/,/g, "");
-                  e.target.value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-                },
-              })}
-            />
-            {addErrors.total_price && (
-              <p className="text-red-500 text-sm mt-1">
-                {addErrors.total_price.message}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-white">
+            <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-200">
               سرویس‌ها
-            </label>
-            {servicesData.length === 0 ? (
-              <p className="text-red-500 text-sm">هیچ سرویسی در دسترس نیست</p>
-            ) : (
-              <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
-                {servicesData.map((service) => (
-                  <label
-                    key={service.id}
-                    className="flex items-center gap-2 text-sm cursor-pointer text-gray-600 dark:text-gray-300"
-                  >
-                    <input
-                      type="checkbox"
-                      value={service.id}
-                      {...addRegister("service_ids", {
-                        validate: (value) =>
-                          value.length > 0 || "حداقل یک سرویس انتخاب کنید",
-                        valueAsNumber: true,
-                      })}
-                      className={`accent-${themeColor}-500`}
-                    />
-                    {service.name}
-                  </label>
-                ))}
-              </div>
-            )}
-            {addErrors.service_ids && (
-              <p className="text-red-500 text-sm mt-1">
-                {addErrors.service_ids.message}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <select
-              className="primary-input"
-              {...addRegister("business_id", {
-                required: true,
-                valueAsNumber: true,
-              })}
-            >
-              <option value={0}>انتخاب بیزینس</option>
-              {businessData?.map((business) => (
-                <option key={business.id} value={business.id}>
-                  {business.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="package-image">
-              <div className="bg-white text-gray-500 hover:bg-slate-100 border-2 border-gray-300 rounded-xl border-dashed p-4 cursor-pointer dark:bg-gray-900 dark:border-gray-600">
-                <span className="flex items-center gap-2">
-                  انتخاب عکس <IoCamera size={20} />
-                </span>
-              </div>
-            </label>
-            <input
-              type="file"
-              className="hidden"
-              id="package-image"
-              accept="image/*"
-              onChange={handleImageChange}
+            </p>
+            <ServicePicker
+              selected={addServiceIds}
+              onToggle={(id) =>
+                toggleServiceId(id, addServiceIds, (ids) =>
+                  addSetValue("service_ids", ids, { shouldValidate: true }),
+                )
+              }
             />
-            {preview && (
-              <img
-                src={preview}
-                alt="Preview"
-                className="mt-2 w-32 rounded-md"
-              />
-            )}
           </div>
-
-          <Button
-            variant="primary"
-            type="submit"
-            disabled={addPackageMutation.isPending}
-          >
-            {addPackageMutation.isPending ? "درحال افزودن..." : "افزودن"}
+          <Button type="submit" disabled={addPackageMutation.isPending}>
+            {addPackageMutation.isPending ? "در حال ثبت..." : "ثبت پکیج"}
           </Button>
         </form>
       </CustomModal>
 
-      {/* Update Package Modal */}
+      {/* UPDATE */}
       <CustomModal
         isOpen={isUpdateOpen}
         onClose={() => {
           setIsUpdateOpen(false);
           setSelectedPackage(null);
-          updateReset();
           setImage(null);
           setPreview(null);
         }}
-        title="بروزرسانی پکیج"
+        title="ویرایش پکیج"
       >
-        {selectedPackage && (
-          <form
-            onSubmit={updateHandleSubmit(handleUpdateSubmit)}
-            className="flex flex-col gap-6 mb-8"
-          >
-            <div>
-              <input
-                type="text"
-                className="primary-input"
-                placeholder="نام پکیج"
-                {...updateRegister("name", { required: "نام پکیج الزامی است" })}
-              />
-              {updateErrors.name && (
-                <p className="text-red-500 text-sm mt-1">
-                  {updateErrors.name.message}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <textarea
-                className="primary-input"
-                placeholder="توضیحات"
-                {...updateRegister("desc", { required: "توضیحات الزامی است" })}
-              ></textarea>
-              {updateErrors.desc && (
-                <p className="text-red-500 text-sm mt-1">
-                  {updateErrors.desc.message}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <input
-                type="text"
-                className="primary-input"
-                placeholder="قیمت"
-                {...updateRegister("total_price", {
-                  required: "قیمت الزامی است",
-                  onChange: (e) => {
-                    const value = e.target.value.replace(/,/g, "");
-                    e.target.value = value.replace(
-                      /\B(?=(\d{3})+(?!\d))/g,
-                      ",",
-                    );
-                  },
-                })}
-              />
-              {updateErrors.total_price && (
-                <p className="text-red-500 text-sm mt-1">
-                  {updateErrors.total_price.message}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-white">
-                سرویس‌ها
-              </label>
-              {servicesData.length === 0 ? (
-                <p className="text-red-500 text-sm">هیچ سرویسی در دسترس نیست</p>
-              ) : (
-                <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
-                  {servicesData.map((service) => (
-                    <label
-                      key={service.id}
-                      className="flex items-center gap-2 text-sm cursor-pointer text-gray-600 dark:text-gray-300"
-                    >
-                      <input
-                        type="checkbox"
-                        value={service.id}
-                        {...updateRegister("service_ids", {
-                          validate: (value) =>
-                            value.length > 0 || "حداقل یک سرویس انتخاب کنید",
-                          valueAsNumber: true,
-                        })}
-                        defaultChecked={selectedPackage?.services
-                          .map((service) => service.id)
-                          ?.includes(service.id)}
-                        className={`accent-${themeColor}-500`}
-                      />
-                      {service.name}
-                    </label>
-                  ))}
-                </div>
-              )}
-              {updateErrors.service_ids && (
-                <p className="text-red-500 text-sm mt-1">
-                  {updateErrors.service_ids.message}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <select
-                className="primary-input"
-                {...updateRegister("business_id", {
-                  required: true,
-                  valueAsNumber: true,
-                })}
-              >
-                <option value={0}>انتخاب بیزینس</option>
-                {businessData?.map((business) => (
-                  <option key={business.id} value={business.id}>
-                    {business.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="package-image">
-                <div className="bg-white text-gray-500 hover:bg-slate-100 border-2 border-gray-300 rounded-xl border-dashed p-4 cursor-pointer dark:bg-gray-900 dark:border-gray-600">
-                  <span className="flex items-center gap-2">
-                    انتخاب عکس <IoCamera size={20} />
-                  </span>
-                </div>
-              </label>
-              <input
-                type="file"
-                className="hidden"
-                id="package-image"
-                accept="image/*"
-                onChange={handleImageChange}
-              />
-              {preview && (
-                <img
-                  src={preview}
-                  alt="Preview"
-                  className="mt-2 w-32 rounded-md"
-                />
-              )}
-            </div>
-
-            <Button
-              variant="primary"
-              type="submit"
-              disabled={updatePackageMutation.isPending}
-            >
-              {updatePackageMutation.isPending
-                ? "درحال بروزرسانی..."
-                : "بروزرسانی"}
-            </Button>
-          </form>
-        )}
-        <div className="flex flex-col gap-6">
-          {packages.map((pkg) => (
-            <div
-              key={pkg.id}
-              className={`flex items-center gap-4 relative border-s-2 border-s-${themeColor}-500 rounded-e-xl p-2 bg-slate-100 dark:bg-gray-700 shadow-md`}
-            >
-              <div className="space-y-2">
-                <h4 className="text-base text-gray-800 font-normal dark:text-gray-200">
-                  {pkg.name}
-                </h4>
-                <p className="text-sm text-gray-500 font-thin line-clamp-1 dark:text-gray-400">
-                  {pkg.desc}
-                </p>
-              </div>
-              <button
-                className={`text-xl text-${themeColor}-500 absolute top-6 left-4 hover:text-${themeColor}-600 transition`}
-                onClick={() => handleUpdatePackage(pkg)}
-              >
-                <FaPencil />
-              </button>
-            </div>
-          ))}
-        </div>
+        <form
+          onSubmit={updateHandleSubmit(handleUpdateSubmit)}
+          className="flex flex-col gap-4"
+        >
+          <ImagePicker />
+          <input
+            type="text"
+            className="primary-input"
+            placeholder="نام پکیج"
+            {...updateRegister("name", { required: true })}
+          />
+          <textarea
+            className="primary-input min-h-[5rem] h-auto"
+            placeholder="توضیحات"
+            {...updateRegister("desc", { required: true })}
+          />
+          <input
+            type="text"
+            className="primary-input"
+            placeholder="قیمت کل"
+            {...updateRegister("total_price", { required: true })}
+          />
+          <ServicePicker
+            selected={updateServiceIds}
+            onToggle={(id) =>
+              toggleServiceId(id, updateServiceIds, (ids) =>
+                updateSetValue("service_ids", ids),
+              )
+            }
+          />
+          <Button type="submit">ذخیره تغییرات</Button>
+        </form>
       </CustomModal>
 
-      {/* Delete Package Modal */}
+      {/* DELETE LIST */}
       <CustomModal
         isOpen={isDeleteOpen}
         onClose={() => setIsDeleteOpen(false)}
         title="حذف پکیج"
       >
-        <div className="flex flex-col gap-4">
+        <div className="space-y-3">
           {packages.map((p) => (
             <div
               key={p.id}
-              className="flex items-center gap-4 relative border-s-2 border-s-red-500 rounded-e-xl p-4 bg-slate-100 dark:bg-gray-700 shadow-md"
+              className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-800"
             >
-              <h4 className="text-base font-medium text-gray-800 dark:text-gray-300">
+              <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
                 {p.name}
-              </h4>
+              </span>
               <button
-                className="text-xl text-red-500 absolute top-5 left-3 hover:text-red-600 transition"
+                type="button"
+                className="text-rose-500"
                 onClick={() => handleRemovePackage(p.id)}
               >
                 <FaRegTrashAlt />
@@ -663,56 +442,93 @@ const Packages: React.FC = () => {
         </div>
       </CustomModal>
 
-      <div className="flex flex-row justify-between items-center mt-8">
-        <PageTitle title="پکیج ها" />
-        {/* Edit Box */}
-        <div className="flex flex-row flex-wrap items-center gap-2">
-          <Dropdown
-            isAddOpen={isAddOpen}
-            setIsAddOpen={setIsAddOpen}
-            isUpdateOpen={isUpdateOpen}
-            setIsUpdateOpen={setIsUpdateOpen}
-            isDeleteOpen={isDeleteOpen}
-            setIsDeleteOpen={setIsDeleteOpen}
-          />
+      {/* LIST — card UI */}
+      {packages.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-gray-200 bg-white py-16 dark:border-gray-600 dark:bg-gray-800">
+          <LuPackage size={48} className="text-gray-300" />
+          <p className="font-semibold text-gray-700 dark:text-gray-200">
+            هنوز پکیجی ثبت نشده
+          </p>
+          <Button type="button" onClick={() => setIsAddOpen(true)}>
+            افزودن پکیج
+          </Button>
         </div>
-      </div>
-
-      <motion.div
-        className="space-y-4"
-        variants={parentVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        {packages.map((pkg) => (
-          <motion.div
-            onClick={() => navigate(`/packages/${pkg.id}`)}
-            key={pkg.id}
-            className="bg-white shadow-md rounded-xl p-4 flex flex-row items-center justify-between dark:bg-gray-700"
-            variants={childrenVariants}
-          >
-            <div className="space-y-2 flex-1">
-              <h4 className="text-base font-medium text-gray-800 dark:text-white">
-                {pkg.name}
-              </h4>
-              <p className="text-sm font-medium text-gray-600 line-clamp-1 dark:text-gray-300">
-                {pkg.desc}
-              </p>
-            </div>
-            <div className="flex-1 flex justify-end">
-              <img
-                src={
-                  pkg?.image
-                    ? `https://queuingprojectapi.pythonanywhere.com${pkg.image}`
-                    : "/images/no-image.jpg"
-                }
-                alt="Package Image"
-                className="h-14 w-28 object-cover rounded-xl"
-              />
-            </div>
-          </motion.div>
-        ))}
-      </motion.div>
+      ) : (
+        <motion.div
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+          variants={parentVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          {packages.map((pkg) => (
+            <motion.article
+              key={pkg.id}
+              variants={childrenVariants}
+              className={`group overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800 border-s-4 ${themeBorder[themeColor]}`}
+            >
+              <button
+                type="button"
+                className="block w-full text-right"
+                onClick={() => navigate(`/packages/${pkg.id}`)}
+              >
+                <div className="aspect-[16/9] overflow-hidden bg-gray-100 dark:bg-gray-700">
+                  <img
+                    src={mediaUrl(pkg.image)}
+                    alt={pkg.name}
+                    className="h-full w-full object-cover transition group-hover:scale-105"
+                  />
+                </div>
+                <div className="space-y-2 p-4">
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                    {pkg.name}
+                  </h3>
+                  <p className="line-clamp-2 text-sm text-gray-500 dark:text-gray-400">
+                    {pkg.desc}
+                  </p>
+                  <p
+                    className={`text-sm font-semibold ${themeText[themeColor]}`}
+                  >
+                    {Number(pkg.total_price || 0).toLocaleString("fa-IR")} تومان
+                  </p>
+                  {pkg.services?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {pkg.services.slice(0, 3).map((s) => (
+                        <span
+                          key={s.id}
+                          className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                        >
+                          {s.name}
+                        </span>
+                      ))}
+                      {pkg.services.length > 3 && (
+                        <span className="text-[10px] text-gray-400">
+                          +{pkg.services.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </button>
+              <div className="flex gap-2 border-t border-gray-100 px-4 py-3 dark:border-gray-700">
+                <button
+                  type="button"
+                  onClick={() => openUpdate(pkg)}
+                  className={`inline-flex flex-1 items-center justify-center gap-1 rounded-xl px-3 py-2 text-xs font-semibold text-white ${themeBgSolid[themeColor]}`}
+                >
+                  <FaPencil size={12} /> ویرایش
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRemovePackage(pkg.id)}
+                  className="inline-flex items-center justify-center gap-1 rounded-xl bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600 dark:bg-rose-950/40"
+                >
+                  <FaRegTrashAlt size={12} /> حذف
+                </button>
+              </div>
+            </motion.article>
+          ))}
+        </motion.div>
+      )}
     </div>
   );
 };

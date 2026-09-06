@@ -14,10 +14,11 @@ import { FaRegTrashAlt } from "react-icons/fa";
 import { useRemoveSlider } from "../../hooks/sliders/useRemoveSlider";
 import { useUpdateSlider } from "../../hooks/sliders/useUpdateSlider";
 import PageTitle from "../../components/PageTitle/PageTitle";
-import { useThemeColor } from "../../context/ThemeColor";
+import { ThemeColorName, useThemeColor } from "../../context/ThemeColor";
 import Dropdown from "../../components/Dropdown/Dropdown";
 import { motion } from "framer-motion";
 import { IoCamera } from "react-icons/io5";
+import { themeText } from "../../utils/themeClasses";
 
 const parentVariants = {
   hidden: { opacity: 0 },
@@ -44,7 +45,7 @@ const Sliders: React.FC = () => {
   const [isUpdateOpen, setIsUpdateOpen] = useState<boolean>(false);
   const [selectedSliderId, setSelectedSliderId] = useState<number | null>(null);
   const [selectedSlider, setSelectedSlider] = useState<SliderItems | null>(
-    null
+    null,
   );
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -315,7 +316,7 @@ const Sliders: React.FC = () => {
               value={selectedSlider?.title || ""}
               onChange={(e) => {
                 setSelectedSlider((prev) =>
-                  prev ? { ...prev, title: e.target.value } : null
+                  prev ? { ...prev, title: e.target.value } : null,
                 );
               }}
               className="primary-input"
@@ -327,7 +328,7 @@ const Sliders: React.FC = () => {
               value={selectedSlider?.sub_title || ""}
               onChange={(e) =>
                 setSelectedSlider((prev) =>
-                  prev ? { ...prev, sub_title: e.target.value } : null
+                  prev ? { ...prev, sub_title: e.target.value } : null,
                 )
               }
             ></textarea>
@@ -366,7 +367,7 @@ const Sliders: React.FC = () => {
                 checked={selectedSlider?.is_active || false}
                 onChange={(e) =>
                   setSelectedSlider((prev) =>
-                    prev ? { ...prev, is_active: e.target.checked } : null
+                    prev ? { ...prev, is_active: e.target.checked } : null,
                   )
                 }
                 className={`accent-${themeColor}-500`}
@@ -495,7 +496,7 @@ const Sliders: React.FC = () => {
                     />
                   )}
                   <button
-                    className={`text-xl text-${themeColor}-500 hover:text-${themeColor}-600 transition`}
+                    className={`text-xl text-${themeColor}-500 hover:${themeText[themeColor as ThemeColorName]} transition`}
                     onClick={() => handleSlider(slider)}
                   >
                     <FaPencil />

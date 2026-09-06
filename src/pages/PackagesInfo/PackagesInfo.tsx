@@ -11,9 +11,10 @@ import { GiCoffeeCup, GiRotaryPhone } from "react-icons/gi";
 import { LuCircleParking } from "react-icons/lu";
 import { FaInstagram } from "react-icons/fa";
 import Button from "../../components/Button/Button";
-import { useThemeColor } from "../../context/ThemeColor";
+import { ThemeColorName, useThemeColor } from "../../context/ThemeColor";
 import CustomModal from "../../components/CustomModal/CustomModal";
 import { useWallet } from "../../context/WalletContext";
+import { themeText } from "../../utils/themeClasses";
 
 const PackagesInfo: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -166,7 +167,7 @@ const PackagesInfo: React.FC = () => {
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center gap-4">
                     <span
-                      className={`bg-${themeColor}-100 text-${themeColor}-600 rounded-full p-3 mr-3`}
+                      className={`bg-${themeColor}-100 ${themeText[themeColor as ThemeColorName]} rounded-full p-3 mr-3`}
                     >
                       <svg
                         className="w-6 h-6"

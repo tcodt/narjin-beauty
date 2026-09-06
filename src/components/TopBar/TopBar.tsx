@@ -16,6 +16,7 @@ import { useMarkAllNotificationsRead } from "../../hooks/notifications/useMarkAl
 import { useDeleteNotification } from "../../hooks/notifications/useDeleteNotification";
 import { AppNotification } from "../../types/notifications";
 import Dots from "../Dots/Dots";
+import { themeGradientBar, themeText } from "../../utils/themeClasses";
 
 function typeTone(type: string): "info" | "success" | "warning" | "danger" {
   if (type.includes("confirm") || type === "appointment_confirmed")
@@ -120,7 +121,7 @@ const TopBar: React.FC = () => {
 
   return (
     <motion.header
-      className={`topbar-motion-fix sticky top-0 z-30 mb-4 flex items-center justify-between rounded-2xl bg-gradient-to-l from-${themeColor}-600 to-${themeColor}-500 px-3 py-2.5 shadow-lg shadow-${themeColor}-500/20 dark:from-${themeColor}-800 dark:to-${themeColor}-700`}
+      className={`topbar-motion-fix sticky top-0 z-30 mb-4 flex items-center justify-between rounded-2xl px-3 py-2.5 shadow-lg ${themeGradientBar[themeColor]}`}
       initial={{ y: -24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
@@ -210,7 +211,7 @@ const TopBar: React.FC = () => {
               type="button"
               onClick={handleMarkAll}
               disabled={markAllRead.isPending}
-              className={`text-xs font-semibold text-${themeColor}-600 disabled:opacity-50`}
+              className={`text-xs font-semibold ${themeText[themeColor]} disabled:opacity-50`}
             >
               {markAllRead.isPending ? "…" : "خواندن همه"}
             </button>
@@ -288,7 +289,7 @@ const TopBar: React.FC = () => {
                         </p>
                         {notif.appointment ? (
                           <span
-                            className={`mt-2 block text-xs font-semibold text-${themeColor}-600`}
+                            className={`mt-2 block text-xs font-semibold ${themeText[themeColor]}`}
                           >
                             مشاهده نوبت #{notif.appointment}
                           </span>

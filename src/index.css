@@ -299,3 +299,10 @@ html {
 .driver-active-element {
   border-radius: 1rem !important;
 }
+
+.driver-popover.salon-driver-theme .driver-popover-progress-text {
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}

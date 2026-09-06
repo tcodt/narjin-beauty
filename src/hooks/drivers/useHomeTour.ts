@@ -26,7 +26,7 @@ export const useHomeTour = () => {
         stagePadding: 8,
         stageRadius: 16,
         popoverClass: "salon-driver-theme",
-        progressText: "{{current}} از {{total}}",
+        progressText: "{{current}} / {{total}}",
         doneBtnText: "شروع کنید",
         prevBtnText: "قبلی",
         nextBtnText: "بعدی",

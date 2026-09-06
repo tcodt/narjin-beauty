@@ -5,6 +5,7 @@ import {
   getEmployeeDisplayName,
   getEmployeeImage,
 } from "../../types/employees";
+import { themeText } from "../../utils/themeClasses";
 
 interface EmployeeCardProps {
   employee: {
@@ -14,7 +15,7 @@ interface EmployeeCardProps {
   };
   actionIcon: React.ReactNode;
   onAction: () => void;
-  themeColor: string;
+  themeColor: keyof typeof themeText;
 }
 
 const EmployeeCard: React.FC<EmployeeCardProps> = ({
@@ -36,7 +37,7 @@ const EmployeeCard: React.FC<EmployeeCardProps> = ({
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm dark:border-gray-600 dark:bg-gray-700">
       <div
-        className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-${themeColor}-50 text-${themeColor}-600`}
+        className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-${themeColor}-50 ${themeText[themeColor]}`}
       >
         {src ? (
           <img src={src} alt={name} className="h-full w-full object-cover" />
@@ -57,7 +58,7 @@ const EmployeeCard: React.FC<EmployeeCardProps> = ({
       <button
         type="button"
         onClick={onAction}
-        className={`flex h-9 w-9 items-center justify-center rounded-full bg-${themeColor}-100 text-${themeColor}-600 transition hover:bg-${themeColor}-200`}
+        className={`flex h-9 w-9 items-center justify-center rounded-full bg-${themeColor}-100 ${themeText[themeColor]} transition hover:bg-${themeColor}-200`}
         aria-label="عملیات"
       >
         {actionIcon}

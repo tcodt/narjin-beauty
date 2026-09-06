@@ -228,15 +228,16 @@ const SalonCodeForm: React.FC<SalonCodeFormProps> = ({
                 <input
                   type="text"
                   value={code}
-                  onChange={(e) => setCode(e.target.value)}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleSubmit();
                   }}
-                  placeholder="مثلاً A8X4K2"
+                  placeholder="مثلاً 225991"
                   maxLength={12}
+                  inputMode="numeric"
                   autoComplete="off"
                   autoFocus
-                  className="w-full rounded-xl border-2 border-slate-200 bg-slate-50/50 px-5 py-3.5 text-center text-lg font-bold uppercase tracking-[0.35em] text-slate-800 outline-none transition-all duration-200 placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:shadow-lg focus:shadow-emerald-500/10 focus:ring-4 focus:ring-emerald-500/20 dark:border-gray-600 dark:bg-gray-700/50 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:border-emerald-400 dark:focus:bg-gray-700 dark:focus:shadow-emerald-400/10 dark:focus:ring-emerald-400/20"
+                  className="w-full rounded-xl border-2 border-slate-200 bg-slate-50/50 px-5 py-3.5 text-center text-lg font-bold uppercase tracking-widest text-slate-800 outline-none transition-all duration-200 placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:shadow-lg focus:shadow-emerald-500/10 focus:ring-4 focus:ring-emerald-500/20 dark:border-gray-600 dark:bg-gray-700/50 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:border-emerald-400 dark:focus:bg-gray-700 dark:focus:shadow-emerald-400/10 dark:focus:ring-emerald-400/20"
                 />
                 <AnimatePresence>
                   {code.length > 0 && (

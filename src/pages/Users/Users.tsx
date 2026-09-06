@@ -9,7 +9,7 @@ import { FaPencil } from "react-icons/fa6";
 import CustomModal from "../../components/CustomModal/CustomModal";
 import { useQueryClient } from "@tanstack/react-query";
 import Button from "../../components/Button/Button";
-import { useThemeColor } from "../../context/ThemeColor";
+import { ThemeColorName, useThemeColor } from "../../context/ThemeColor";
 import { useAddUser } from "../../hooks/users/useAddUser";
 import { useUpdateUser } from "../../hooks/users/useUpdateUser";
 import { useRemoveUser } from "../../hooks/users/useRemoveUser";
@@ -17,6 +17,7 @@ import { AxiosError } from "axios";
 import { User } from "../../types/users";
 import Dropdown from "../../components/Dropdown/Dropdown";
 import { motion } from "framer-motion";
+import { themeText } from "../../utils/themeClasses";
 
 // Define interfaces for form data
 interface UserFormData {
@@ -107,7 +108,7 @@ const Users: React.FC = () => {
   // Handle image change for both add and update modals
   const handleImageChange = (
     e: React.ChangeEvent<HTMLInputElement>,
-    isUpdate: boolean
+    isUpdate: boolean,
   ) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -240,7 +241,7 @@ const Users: React.FC = () => {
     formData.append("is_staff", String(data.is_staff));
     data.groups.forEach((id) => formData.append("groups[]", id.toString()));
     data.user_permissions.forEach((id) =>
-      formData.append("user_permissions[]", id.toString())
+      formData.append("user_permissions[]", id.toString()),
     );
 
     updateUserMutation.mutate(
@@ -275,7 +276,7 @@ const Users: React.FC = () => {
           toast.error(errorMessage, { id: toastId });
           console.error("Update User Error:", axiosError);
         },
-      }
+      },
     );
   };
 
@@ -573,7 +574,7 @@ const Users: React.FC = () => {
                   </span>
                 </div>
                 <button
-                  className={`text-xl text-${themeColor}-500 absolute top-7 left-4 hover:text-${themeColor}-600 transition`}
+                  className={`text-xl text-${themeColor}-500 absolute top-7 left-4 hover:${themeText[themeColor as ThemeColorName]} transition`}
                   onClick={() => handleSelectUserForUpdate(user.id, user)}
                   type="button"
                 >
@@ -696,10 +697,10 @@ const Users: React.FC = () => {
                     {user.is_owner
                       ? "مالک"
                       : user.is_staff
-                      ? "کارمند"
-                      : user.is_superuser
-                      ? "سوپر کاربر"
-                      : "کاربر"}
+                        ? "کارمند"
+                        : user.is_superuser
+                          ? "سوپر کاربر"
+                          : "کاربر"}
                   </td>
                 </tr>
               </tbody>

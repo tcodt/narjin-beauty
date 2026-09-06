@@ -13,7 +13,7 @@ import { GrLineChart } from "react-icons/gr";
 import { HiArrowLeft } from "react-icons/hi";
 
 import { useGetDashboardToday } from "../../hooks/dashboard/useGetDashboardToday";
-import { useThemeColor } from "../../context/ThemeColor";
+import { ThemeColorName, useThemeColor } from "../../context/ThemeColor";
 import { useAcl } from "../../context/AclContext";
 import {
   DashboardResponse,
@@ -27,6 +27,7 @@ import {
   getEmployeeDisplayName,
   getEmployeePhone,
 } from "../../types/employees";
+import { themeText } from "../../utils/themeClasses";
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
@@ -291,7 +292,7 @@ const AdminDashboardView: React.FC<{
           </p>
           <Link
             to="/manage-employees"
-            className={`mt-3 inline-block text-sm font-semibold text-${themeColor}-600`}
+            className={`mt-3 inline-block text-sm font-semibold ${themeText[themeColor as ThemeColorName]}`}
           >
             افزودن آرایشگر
           </Link>
@@ -316,7 +317,7 @@ const AdminDashboardView: React.FC<{
           </div>
           <Link
             to="/manage-employees"
-            className={`shrink-0 text-xs font-medium text-${themeColor}-600`}
+            className={`shrink-0 text-xs font-medium ${themeText[themeColor as ThemeColorName]}`}
           >
             جزئیات
           </Link>
@@ -490,7 +491,7 @@ const OwnerLimitedDashboard: React.FC<{ themeColor: string }> = ({
     >
       <div className="flex items-start gap-3">
         <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-${themeColor}-100 text-${themeColor}-600 dark:bg-${themeColor}-900/40`}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-${themeColor}-100 ${themeText[themeColor as ThemeColorName]} dark:bg-${themeColor}-900/40`}
         >
           <span className="text-lg animate-spin duration-1000 delay-1000">
             <GiSandsOfTime />
@@ -519,14 +520,14 @@ const OwnerLimitedDashboard: React.FC<{ themeColor: string }> = ({
         <Link
           key={item.to}
           to={item.to}
-          className={`rounded-xl bg-white p-4 text-center text-sm font-medium text-gray-700 shadow-sm transition hover:shadow-md dark:bg-gray-800 dark:text-gray-200 hover:text-${themeColor}-600`}
+          className={`rounded-xl bg-white p-4 text-center text-sm font-medium text-gray-700 shadow-sm transition hover:shadow-md dark:bg-gray-800 dark:text-gray-200 hover:${themeText[themeColor as ThemeColorName]}`}
         >
           {item.label}
         </Link>
       ))}
       <Link
         to="/user-profile"
-        className={`col-span-2 rounded-xl border border-dashed border-${themeColor}-200 bg-white p-4 text-center text-sm font-medium text-${themeColor}-600 shadow-sm dark:border-gray-600 dark:bg-gray-800 sm:col-span-4`}
+        className={`col-span-2 rounded-xl border border-dashed border-${themeColor}-200 bg-white p-4 text-center text-sm font-medium ${themeText[themeColor as ThemeColorName]} shadow-sm dark:border-gray-600 dark:bg-gray-800 sm:col-span-4`}
       >
         پروفایل و کد آرایشگاه
       </Link>

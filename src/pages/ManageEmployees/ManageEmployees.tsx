@@ -11,7 +11,7 @@ import Button from "../../components/Button/Button";
 import { useAddEmployee } from "../../hooks/employees/useAddEmployee";
 import { useUpdateEmployee } from "../../hooks/employees/useUpdateEmployee";
 import PageTitle from "../../components/PageTitle/PageTitle";
-import { useThemeColor } from "../../context/ThemeColor";
+import { ThemeColorName, useThemeColor } from "../../context/ThemeColor";
 import Dropdown from "../../components/Dropdown/Dropdown";
 import { motion } from "framer-motion";
 import { AxiosError } from "axios";
@@ -28,6 +28,7 @@ import {
   getEmployeeImage,
 } from "../../types/employees";
 import { useAuth } from "../../context/AuthContext";
+import { themeBgSolid, themeText } from "../../utils/themeClasses";
 
 const ManageEmployees: React.FC = () => {
   const { data: employees = [], isPending, isError, error } = useGetEmployees();
@@ -363,7 +364,7 @@ const ManageEmployees: React.FC = () => {
       {!employees.length ? (
         <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-14 text-center dark:border-gray-600 dark:bg-gray-800">
           <div
-            className={`mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-${themeColor}-50 text-${themeColor}-600`}
+            className={`mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-${themeColor}-50 ${themeText[themeColor as ThemeColorName]}`}
           >
             <FaUser size={22} />
           </div>
@@ -376,7 +377,7 @@ const ManageEmployees: React.FC = () => {
           <button
             type="button"
             onClick={openAdd}
-            className={`mt-4 rounded-xl bg-${themeColor}-600 px-4 py-2.5 text-sm font-semibold text-white`}
+            className={`mt-4 rounded-xl ${themeBgSolid[themeColor]} px-4 py-2.5 text-sm font-semibold text-white`}
           >
             افزودن آرایشگر
           </button>
@@ -407,7 +408,7 @@ const ManageEmployees: React.FC = () => {
 
                 <div className="flex items-start gap-3">
                   <div
-                    className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-${themeColor}-50 text-${themeColor}-600`}
+                    className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-${themeColor}-50 ${themeText[themeColor as ThemeColorName]}`}
                   >
                     {image ? (
                       <img

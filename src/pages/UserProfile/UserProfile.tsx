@@ -20,10 +20,11 @@ import { useUpdateProfile } from "../../hooks/profile/useUpdateProfile";
 import { useBusinessMe } from "../../hooks/business/useBusinessMe";
 import { useUpdateBusiness } from "../../hooks/business/useUpdateBusiness";
 import { UpdateProfile } from "../../types/profile";
-import { useThemeColor } from "../../context/ThemeColor";
+import { ThemeColorName, useThemeColor } from "../../context/ThemeColor";
 import { useAcl } from "../../context/AclContext";
 import CustomModal from "../../components/CustomModal/CustomModal";
 import Button from "../../components/Button/Button";
+import { themeBgSoft, themeText } from "../../utils/themeClasses";
 
 type BusinessFormValues = {
   name: string;
@@ -231,7 +232,7 @@ const UserProfile: React.FC = () => {
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span
-                className={`flex h-9 w-9 items-center justify-center rounded-xl bg-${themeColor}-50 text-${themeColor}-600 dark:bg-gray-700`}
+                className={`flex h-9 w-9 items-center justify-center rounded-xl bg-${themeColor}-50 ${themeText[themeColor as ThemeColorName]} dark:bg-gray-700`}
               >
                 <FaStore />
               </span>
@@ -243,7 +244,7 @@ const UserProfile: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsBusinessEditOpen(true)}
-                className={`text-sm font-semibold text-${themeColor}-600 hover:opacity-80`}
+                className={`text-sm font-semibold ${themeText[themeColor as ThemeColorName]} hover:opacity-80`}
               >
                 ویرایش
               </button>
@@ -261,7 +262,7 @@ const UserProfile: React.FC = () => {
               </p>
               <Link
                 to="/create-business"
-                className={`mt-2 inline-block text-sm font-semibold text-${themeColor}-600`}
+                className={`mt-2 inline-block text-sm font-semibold ${themeText[themeColor as ThemeColorName]}`}
               >
                 ثبت کسب‌وکار
               </Link>
@@ -328,6 +329,32 @@ const UserProfile: React.FC = () => {
                 >
                   <FaCopy /> کپی کد
                 </button>
+
+                {business?.random_code && (
+                  <div
+                    className={`col-span-full flex flex-col items-center gap-3 rounded-2xl border border-gray-100 p-5 dark:border-gray-700 ${themeBgSoft[themeColor]}`}
+                  >
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                      کد سالن:{" "}
+                      <b className={themeText[themeColor]} dir="ltr">
+                        {business.random_code}
+                      </b>
+                    </p>
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                        String(business.random_code),
+                      )}`}
+                      alt="QR Code"
+                      width={200}
+                      height={200}
+                      className="rounded-2xl border border-white bg-white p-2 shadow-sm"
+                    />
+                    <p className="text-center text-[11px] text-gray-500">
+                      مشتری با اسکن این کد یا وارد کردن عدد، به سالن شما وصل
+                      می‌شود
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-2 pt-1 sm:grid-cols-4">

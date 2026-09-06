@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { useThemeColor } from "../../context/ThemeColor";
+import { ThemeColorName, useThemeColor } from "../../context/ThemeColor";
 import { useWallet } from "../../context/WalletContext";
 import { GrPowerReset } from "react-icons/gr";
+import { themeBgSolid, themeText } from "../../utils/themeClasses";
 // import { useGetWallet } from "../../hooks/wallet/useGetWallet";
 
 const Wallet: React.FC = () => {
@@ -26,7 +27,7 @@ const Wallet: React.FC = () => {
       <div className="bg-white dark:bg-gray-700 rounded-xl shadow-lg p-6 w-full max-w-md mb-6">
         <div className="flex items-center gap-4 mb-4">
           <span
-            className={`bg-${themeColor}-100 text-${themeColor}-600 rounded-full p-3 mr-3`}
+            className={`bg-${themeColor}-100 ${themeText[themeColor as ThemeColorName]} rounded-full p-3 mr-3`}
           >
             <svg
               className="w-6 h-6"
@@ -60,7 +61,7 @@ const Wallet: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className={`w-full bg-${themeColor}-500 hover:bg-${themeColor}-600 text-white py-2 rounded-lg transition`}
+            className={`w-full bg-${themeColor}-500 hover:${themeBgSolid[themeColor]} text-white py-2 rounded-lg transition`}
             onClick={handleRecharge}
           >
             افزایش موجودی
@@ -89,7 +90,7 @@ const Wallet: React.FC = () => {
       <div className="bg-white dark:bg-gray-700 rounded-xl shadow p-4 w-full max-w-md">
         <div className="flex items-center gap-4 mb-2">
           <span
-            className={`bg-blue-100 text-${themeColor}-600 rounded-full p-2 mr-2`}
+            className={`bg-blue-100 ${themeText[themeColor as ThemeColorName]} rounded-full p-2 mr-2`}
           >
             <svg
               className="w-5 h-5"

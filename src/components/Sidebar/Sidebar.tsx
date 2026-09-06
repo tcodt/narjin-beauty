@@ -19,6 +19,7 @@ import { TbCalendarTime } from "react-icons/tb";
 import { useAcl } from "../../context/AclContext";
 import { logoMap } from "../../utils/logoMap";
 import { motion } from "framer-motion";
+import { themeGradientBar, themeText } from "../../utils/themeClasses";
 
 const parentVariants = {
   hidden: { opacity: 0 },
@@ -201,7 +202,7 @@ const Sidebar: React.FC = () => {
       >
         {/* Header */}
         <div
-          className={`flex items-center gap-3 bg-gradient-to-l from-${themeColor}-600 to-${themeColor}-500 px-4 py-5`}
+          className={`flex items-center gap-3 bg-gradient-to-l ${themeGradientBar[themeColor]} to-${themeColor}-500 px-4 py-5`}
         >
           <div className="h-12 w-12 overflow-hidden rounded-full border-2 border-white/40">
             <img src={logoSrc} alt="" className="h-full w-full object-cover" />
@@ -243,7 +244,7 @@ const Sidebar: React.FC = () => {
                   >
                     <span
                       className={
-                        active ? `text-${themeColor}-600` : "text-gray-400"
+                        active ? `${themeText[themeColor]}` : "text-gray-400"
                       }
                     >
                       {item.icon}
