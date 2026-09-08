@@ -1,7 +1,12 @@
 import React, { useMemo } from "react";
 import { Link } from "react-router";
 import { motion } from "framer-motion";
-import { LuNotebookText } from "react-icons/lu";
+import {
+  LuNotebookText,
+  LuUsers,
+  LuCalendarDays,
+  LuWallet,
+} from "react-icons/lu";
 import {
   MdOutlineBookmarkAdded,
   MdOutlineBookmarkRemove,
@@ -11,6 +16,7 @@ import {
 } from "react-icons/md";
 import { GrLineChart } from "react-icons/gr";
 import { HiArrowLeft } from "react-icons/hi";
+import { GiSandsOfTime } from "react-icons/gi";
 
 import { useGetDashboardToday } from "../../hooks/dashboard/useGetDashboardToday";
 import { ThemeColorName, useThemeColor } from "../../context/ThemeColor";
@@ -21,13 +27,20 @@ import {
   UserDashboardResponse,
 } from "../../types/dashboard";
 import Dots from "../../components/Dots/Dots";
-import { GiSandsOfTime } from "react-icons/gi";
 import { useGetEmployees } from "../../hooks/employees/useGetEmployees";
 import {
   getEmployeeDisplayName,
   getEmployeePhone,
 } from "../../types/employees";
-import { themeText } from "../../utils/themeClasses";
+import { useBusinessMe } from "../../hooks/business/useBusinessMe";
+import {
+  themeText,
+  themeBgSoft,
+  themeBgSolid,
+  themeBarFill,
+  themeBorder,
+} from "../../utils/themeClasses";
+import { SalonQrCard } from "../../components/SalonQrCard/SalonQrCard";
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
@@ -43,36 +56,55 @@ const isUserDashboard = (
 
 const formatMoney = (value: number) => `${value.toLocaleString("fa-IR")} تومان`;
 
-const statusColor = (status: string) => {
+const statusMeta = (status: string) => {
   switch (status) {
     case "pending":
-      return "text-yellow-500";
+      return {
+        text: "text-amber-600 dark:text-amber-400",
+        chip: "bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+      };
     case "confirmed":
-      return "text-green-500";
+    case "completed":
+      return {
+        text: "text-emerald-600 dark:text-emerald-400",
+        chip: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+      };
     case "cancelled":
     case "canceled":
-      return "text-red-500";
+      return {
+        text: "text-rose-600 dark:text-rose-400",
+        chip: "bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
+      };
     default:
-      return "text-gray-500";
+      return {
+        text: "text-gray-500",
+        chip: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+      };
   }
 };
 
 /* -------------------------------------------------------------------------- */
-/* Small UI pieces                                                            */
+/* UI pieces                                                                  */
 /* -------------------------------------------------------------------------- */
 
 const StatCard: React.FC<{
   label: React.ReactNode;
   icon: React.ReactNode;
   className?: string;
-}> = ({ label, icon, className = "col-span-full" }) => (
+  hint?: string;
+}> = ({ label, icon, className = "col-span-full", hint }) => (
   <div
-    className={`p-4 bg-white dark:bg-gray-700 rounded-xl shadow-sm relative overflow-hidden ${className}`}
+    className={`relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 ${className}`}
   >
-    <div className="absolute top-2 left-2 opacity-50">{icon}</div>
-    <div className="text-base font-medium text-gray-700 dark:text-gray-200">
+    <div className="absolute left-3 top-3 opacity-40">{icon}</div>
+    <div className="pr-1 text-base font-semibold text-gray-800 dark:text-gray-100">
       {label}
     </div>
+    {hint && (
+      <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
+        {hint}
+      </p>
+    )}
   </div>
 );
 
@@ -80,21 +112,26 @@ const SectionTitle: React.FC<{
   children: React.ReactNode;
   action?: React.ReactNode;
 }> = ({ children, action }) => (
-  <div className="col-span-full mt-4 flex items-end justify-between">
-    <h3 className="primary-title dark:text-white">{children}</h3>
+  <div className="col-span-full mt-5 flex items-end justify-between gap-2">
+    <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+      {children}
+    </h3>
     {action}
   </div>
 );
 
 /* -------------------------------------------------------------------------- */
-/* Admin (business owner) view                                                */
+/* Admin (owner)                                                              */
 /* -------------------------------------------------------------------------- */
 
 const AdminDashboardView: React.FC<{
   data: AdminDashboardResponse;
-  themeColor: string;
+  themeColor: ThemeColorName;
 }> = ({ data, themeColor }) => {
   const { data: employees, isPending: employeesLoading } = useGetEmployees();
+  const { data: business } = useBusinessMe();
+  const employeeList = employees ?? [];
+  const tc = themeColor;
 
   const incomeData = useMemo(() => {
     const { today = 0, week = 0, month = 0 } = data.income ?? {};
@@ -106,32 +143,45 @@ const AdminDashboardView: React.FC<{
     ];
   }, [data.income]);
 
-  const employeeList = employees ?? [];
+  const pendingCount =
+    data.appointments?.filter((a) => a.status === "pending").length ?? 0;
 
   return (
     <>
-      {/* Income chart — same as before */}
+      <SalonQrCard
+        code={business?.random_code}
+        name={business?.name}
+        themeColor={tc}
+      />
+
+      {/* Income chart */}
       {incomeData.length > 0 && (
         <div className="col-span-full">
-          <div className="flex h-72 flex-col justify-end rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-700">
+          <div className="flex h-64 flex-col justify-end rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:h-72">
+            <div className="mb-2 flex items-center gap-2">
+              <GrLineChart className={themeText[tc]} size={18} />
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                نمودار درآمد
+              </span>
+            </div>
             <div
-              className={`flex h-full w-full flex-row items-end justify-evenly border-b-2 border-${themeColor}-500 pb-4`}
+              className={`flex h-full w-full flex-row items-end justify-evenly border-b-2 pb-3 ${themeBorder[tc]}`}
             >
               {incomeData.map((bar, i) => (
                 <div
                   key={bar.label}
-                  className="flex h-full w-1/6 flex-col items-center justify-end"
+                  className="flex h-full w-1/5 flex-col items-center justify-end"
                 >
                   <motion.div
                     initial={{ height: 0 }}
-                    animate={{ height: `${bar.height}%` }}
-                    transition={{ duration: 0.8, delay: i * 0.15 }}
-                    className={`min-h-[4px] w-6 rounded-t-2xl bg-${themeColor}-500`}
+                    animate={{ height: `${Math.max(bar.height, 2)}%` }}
+                    transition={{ duration: 0.7, delay: i * 0.12 }}
+                    className={`min-h-[4px] w-7 rounded-t-2xl ${themeBarFill[tc]}`}
                   />
-                  <span className="mt-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+                  <span className="mt-2 text-xs font-medium text-gray-700 dark:text-gray-200">
                     {bar.label}
                   </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                  <span className="text-[10px] text-gray-400">
                     {formatMoney(bar.value)}
                   </span>
                 </div>
@@ -141,63 +191,62 @@ const AdminDashboardView: React.FC<{
         </div>
       )}
 
-      {/* Stats row */}
+      {/* Stats */}
       <StatCard
-        className="col-span-3"
-        icon={<LuNotebookText size={25} className={`text-${themeColor}-500`} />}
+        className="col-span-4 sm:col-span-3"
+        icon={<LuNotebookText size={22} className={themeText[tc]} />}
         label={
           <>
             {data.total_appointments}{" "}
-            <span className="text-gray-500 dark:text-gray-300">رزرو</span>
+            <span className="text-sm font-normal text-gray-500">رزرو</span>
           </>
         }
       />
-
       <StatCard
-        className="col-span-5"
+        className="col-span-4 sm:col-span-5"
         icon={
           data.today_appointments > 0 ? (
-            <MdOutlineBookmarkAdded
-              size={25}
-              className={`text-${themeColor}-500`}
-            />
+            <MdOutlineBookmarkAdded size={22} className={themeText[tc]} />
           ) : (
-            <MdOutlineBookmarkRemove
-              size={25}
-              className={`text-${themeColor}-500`}
-            />
+            <MdOutlineBookmarkRemove size={22} className={themeText[tc]} />
           )
         }
         label={
           <>
             امروز{" "}
-            <span className="text-gray-500 dark:text-gray-300">
-              {data.today_appointments}
-            </span>{" "}
-            رزرو
+            <span className="text-sm font-normal text-gray-500">
+              {data.today_appointments} رزرو
+            </span>
           </>
         }
       />
-
       <StatCard
         className="col-span-4"
-        icon={
-          <MdPeopleOutline size={25} className={`text-${themeColor}-500`} />
-        }
+        icon={<MdPeopleOutline size={22} className={themeText[tc]} />}
         label={
           <>
             {employeeList.length}{" "}
-            <span className="text-gray-500 dark:text-gray-300">آرایشگر</span>
+            <span className="text-sm font-normal text-gray-500">آرایشگر</span>
           </>
         }
       />
 
+      {pendingCount > 0 && (
+        <Link
+          to="/manage-appointments"
+          className="col-span-full flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 transition hover:opacity-90 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
+        >
+          <span>{pendingCount} نوبت در انتظار تأیید شماست</span>
+          <HiArrowLeft size={16} />
+        </Link>
+      )}
+
       {/* Income numbers */}
-      <div className="relative col-span-full grid grid-cols-12 gap-2 overflow-hidden rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-700">
-        <div className="absolute left-0 top-2 opacity-50">
-          <GrLineChart size={25} className={`text-${themeColor}-500`} />
+      <div className="relative col-span-full grid grid-cols-12 gap-2 overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <div className="absolute left-3 top-3 opacity-40">
+          <LuWallet size={22} className={themeText[tc]} />
         </div>
-        <span className="col-span-full text-lg font-semibold text-gray-800 dark:text-gray-100">
+        <span className="col-span-full text-base font-bold text-gray-800 dark:text-gray-100">
           درآمد
         </span>
         {(
@@ -207,15 +256,12 @@ const AdminDashboardView: React.FC<{
             ["امروز", data.income?.today],
           ] as const
         ).map(([label, value]) => (
-          <span
-            key={label}
-            className="col-span-4 text-base font-medium text-gray-700 dark:text-gray-300"
-          >
-            {label}:{" "}
-            <span className="text-gray-500 dark:text-gray-200">
+          <div key={label} className="col-span-4">
+            <p className="text-[11px] text-gray-400">{label}</p>
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
               {formatMoney(value ?? 0)}
-            </span>
-          </span>
+            </p>
+          </div>
         ))}
       </div>
 
@@ -224,7 +270,7 @@ const AdminDashboardView: React.FC<{
         action={
           <Link
             to="/manage-appointments"
-            className={`text-sm font-medium text-${themeColor}-500 hover:opacity-70`}
+            className={`text-sm font-semibold ${themeText[tc]} hover:opacity-70`}
           >
             همه رزروها
           </Link>
@@ -234,44 +280,46 @@ const AdminDashboardView: React.FC<{
       </SectionTitle>
 
       {(data.total_appointments ?? 0) < 1 && (
-        <div className="col-span-full py-6 text-center">
-          <p className="text-base font-medium text-gray-500 dark:text-gray-400">
-            هنوز رزروی برای سالن شما ثبت نشده است.
-          </p>
+        <div className="col-span-full rounded-2xl border border-dashed border-gray-200 bg-white py-8 text-center dark:border-gray-600 dark:bg-gray-800">
+          <p className="text-sm text-gray-500">هنوز رزروی ثبت نشده است.</p>
         </div>
       )}
 
-      {data.appointments?.map((appointment) => (
-        <Link
-          key={appointment.id}
-          // to={`/view-appointment/${appointment.id}`}
-          to="/manage-appointments"
-          className="col-span-full rounded-2xl bg-white p-4 shadow-sm transition hover:opacity-80 dark:bg-gray-700"
-        >
-          <h4 className="flex items-center justify-between gap-2 text-base font-semibold text-gray-700 dark:text-gray-300">
-            <span>{appointment.service?.name ?? "سرویس"}</span>
-            <span
-              className={`${statusColor(appointment.status)} shrink-0 text-sm font-medium`}
-            >
-              {appointment.get_status}
-            </span>
-          </h4>
-          {appointment.employee_name && (
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {appointment.employee_name}
-            </p>
-          )}
-        </Link>
-      ))}
+      {data.appointments?.slice(0, 8).map((appointment) => {
+        const meta = statusMeta(appointment.status);
+        return (
+          <Link
+            key={appointment.id}
+            to="/manage-appointments"
+            className="col-span-full rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">
+                {appointment.service?.name ?? "سرویس"}
+              </h4>
+              <span
+                className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${meta.chip}`}
+              >
+                {appointment.get_status || appointment.status}
+              </span>
+            </div>
+            {appointment.employee_name && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {appointment.employee_name}
+              </p>
+            )}
+          </Link>
+        );
+      })}
 
-      {/* Employees — NOT all platform users */}
+      {/* Employees */}
       <SectionTitle
         action={
           <Link
             to="/manage-employees"
-            className={`inline-flex items-center gap-1 text-sm font-medium text-${themeColor}-500 hover:opacity-70`}
+            className={`inline-flex items-center gap-1 text-sm font-semibold ${themeText[tc]} hover:opacity-70`}
           >
-            مدیریت آرایشگران
+            مدیریت
             <HiArrowLeft size={14} />
           </Link>
         }
@@ -281,18 +329,17 @@ const AdminDashboardView: React.FC<{
 
       {employeesLoading && (
         <div className="col-span-full py-4 text-center text-sm text-gray-500">
-          در حال بارگذاری آرایشگران...
+          در حال بارگذاری...
         </div>
       )}
 
       {!employeesLoading && employeeList.length === 0 && (
         <div className="col-span-full rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-8 text-center dark:border-gray-600 dark:bg-gray-800">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            هنوز آرایشگری اضافه نکرده‌اید.
-          </p>
+          <LuUsers className="mx-auto text-gray-300" size={36} />
+          <p className="mt-2 text-sm text-gray-500">هنوز آرایشگری اضافه نشده</p>
           <Link
             to="/manage-employees"
-            className={`mt-3 inline-block text-sm font-semibold ${themeText[themeColor as ThemeColorName]}`}
+            className={`mt-3 inline-block text-sm font-semibold ${themeText[tc]}`}
           >
             افزودن آرایشگر
           </Link>
@@ -302,22 +349,22 @@ const AdminDashboardView: React.FC<{
       {employeeList.slice(0, 6).map((emp) => (
         <div
           key={emp.id}
-          className="col-span-full flex items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-700 sm:col-span-6"
+          className="col-span-full flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:col-span-6"
         >
           <div className="min-w-0">
-            <h4 className="truncate text-base font-semibold text-gray-800 dark:text-gray-100">
+            <h4 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">
               {getEmployeeDisplayName(emp.user)}
             </h4>
-            <p className="mt-0.5 truncate text-sm text-gray-500 dark:text-gray-400">
-              {emp.skill?.trim() || "بدون مهارت ثبت‌شده"}
+            <p className="mt-0.5 truncate text-xs text-gray-500">
+              {emp.skill?.trim() || "بدون مهارت"}
             </p>
-            <p className="mt-0.5 text-xs text-gray-400" dir="ltr">
+            <p className="mt-0.5 text-[11px] text-gray-400" dir="ltr">
               {getEmployeePhone(emp.user)}
             </p>
           </div>
           <Link
             to="/manage-employees"
-            className={`shrink-0 text-xs font-medium ${themeText[themeColor as ThemeColorName]}`}
+            className={`shrink-0 text-xs font-semibold ${themeText[tc]}`}
           >
             جزئیات
           </Link>
@@ -327,16 +374,33 @@ const AdminDashboardView: React.FC<{
       {/* Quick actions */}
       <div className="col-span-full mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
-          { to: "/manage-services", label: "خدمات" },
-          { to: "/manage-employees", label: "آرایشگران" },
-          { to: "/available-times", label: "زمان‌ها" },
-          { to: "/manage-appointments", label: "رزروها" },
+          {
+            to: "/manage-services",
+            label: "خدمات",
+            icon: <LuNotebookText size={16} />,
+          },
+          {
+            to: "/manage-employees",
+            label: "آرایشگران",
+            icon: <LuUsers size={16} />,
+          },
+          {
+            to: "/available-times",
+            label: "زمان‌ها",
+            icon: <LuCalendarDays size={16} />,
+          },
+          {
+            to: "/manage-appointments",
+            label: "رزروها",
+            icon: <MdOutlineEventAvailable size={16} />,
+          },
         ].map((item) => (
           <Link
             key={item.to}
             to={item.to}
-            className={`rounded-xl bg-${themeColor}-50 py-3 text-center text-sm font-medium text-${themeColor}-700 transition hover:opacity-80 dark:bg-gray-800 dark:text-${themeColor}-300`}
+            className={`flex items-center justify-center gap-1.5 rounded-xl py-3 text-center text-sm font-semibold text-white transition hover:opacity-90 ${themeBgSolid[tc]}`}
           >
+            {item.icon}
             {item.label}
           </Link>
         ))}
@@ -346,97 +410,94 @@ const AdminDashboardView: React.FC<{
 };
 
 /* -------------------------------------------------------------------------- */
-/* User (customer) view                                                       */
+/* Customer                                                                   */
 /* -------------------------------------------------------------------------- */
 
 const UserDashboardView: React.FC<{
   data: UserDashboardResponse;
-  themeColor: string;
+  themeColor: ThemeColorName;
 }> = ({ data, themeColor }) => {
   const next = data.next_appointment;
+  const tc = themeColor;
 
   return (
     <>
-      {/* Unpaid reminder */}
       {data.unpaid_reminder && (
-        <div className="col-span-full flex items-start gap-3 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700">
+        <div className="col-span-full flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-900/30">
           <MdWarningAmber
-            size={24}
-            className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"
+            size={22}
+            className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400"
           />
           <div>
             <p className="font-semibold text-amber-800 dark:text-amber-200">
               پرداخت ناقص
             </p>
-            <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-              یک یا چند رزرو شما هنوز پرداخت نشده است. از بخش کیف پول یا جزئیات
-              رزرو اقدام کنید.
+            <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
+              یک یا چند رزرو هنوز پرداخت نشده است.
             </p>
             <Link
               to="/wallet"
-              className="inline-flex items-center gap-1 mt-2 text-sm font-medium text-amber-800 dark:text-amber-200 hover:underline"
+              className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-amber-800 underline dark:text-amber-200"
             >
-              رفتن به کیف پول
-              <HiArrowLeft size={14} />
+              کیف پول <HiArrowLeft size={14} />
             </Link>
           </div>
         </div>
       )}
 
-      {/* Next appointment highlight */}
       {next ? (
         <Link
           to={`/view-appointment/${next.id}`}
-          className={`col-span-full block p-5 rounded-2xl bg-gradient-to-br from-${themeColor}-500 to-${themeColor}-600 text-white shadow-lg hover:opacity-95 transition`}
+          className={`col-span-full block rounded-2xl p-5 text-white shadow-lg transition hover:opacity-95 ${themeBgSolid[tc]}`}
         >
-          <div className="flex items-center gap-2 mb-2 opacity-90">
-            <MdOutlineEventAvailable size={22} />
-            <span className="text-sm font-medium">نوبت بعدی شما</span>
+          <div className="mb-2 flex items-center gap-2 text-white/90">
+            <MdOutlineEventAvailable size={20} />
+            <span className="text-sm font-medium">نوبت بعدی</span>
           </div>
           <h4 className="text-xl font-bold">{next.service?.name ?? "سرویس"}</h4>
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-white/90">
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-white/90">
             {next.employee_name && <span>{next.employee_name}</span>}
-            <span
-              className={`px-2 py-0.5 rounded-full bg-white/20 text-xs font-medium`}
-            >
-              {next.get_status}
+            <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium">
+              {next.get_status || next.status}
             </span>
           </div>
+          {next.status === "pending" && (
+            <p className="mt-2 text-xs text-white/80">
+              در انتظار تأیید سالن — بعد از تأیید، وضعیت به «تأیید شده» تغییر
+              می‌کند.
+            </p>
+          )}
         </Link>
       ) : (
-        <div className="col-span-full p-6 rounded-2xl bg-white dark:bg-gray-700 shadow-sm text-center">
-          <p className="text-gray-600 dark:text-gray-300 font-medium">
+        <div className="col-span-full rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <p className="font-medium text-gray-600 dark:text-gray-300">
             نوبت فعالی ندارید
           </p>
           <Link
             to="/reserve"
-            className={`inline-block mt-3 px-5 py-2.5 rounded-full bg-${themeColor}-500 text-white text-sm font-medium hover:opacity-90 transition`}
+            className={`mt-3 inline-block rounded-full px-5 py-2.5 text-sm font-semibold text-white ${themeBgSolid[tc]}`}
           >
             رزرو نوبت جدید
           </Link>
         </div>
       )}
 
-      {/* Total bookings */}
       <StatCard
         className="col-span-full"
-        icon={<LuNotebookText size={25} className={`text-${themeColor}-500`} />}
+        icon={<LuNotebookText size={22} className={themeText[tc]} />}
         label={
           <>
             مجموع رزروها:{" "}
-            <span className="text-gray-500 dark:text-gray-300">
-              {data.total_appointments}
-            </span>
+            <span className="text-gray-500">{data.total_appointments}</span>
           </>
         }
       />
 
-      {/* Last appointments */}
       <SectionTitle
         action={
           <Link
             to="/appointments-list"
-            className={`text-sm font-medium text-${themeColor}-500 hover:opacity-70 transition-opacity`}
+            className={`text-sm font-semibold ${themeText[tc]} hover:opacity-70`}
           >
             همه رزروها
           </Link>
@@ -446,94 +507,100 @@ const UserDashboardView: React.FC<{
       </SectionTitle>
 
       {!data.last_appointments?.length && (
-        <div className="col-span-full py-6 text-center">
-          <p className="text-base font-medium text-gray-500 dark:text-gray-400">
-            هنوز رزروی ثبت نکرده‌اید.
-          </p>
+        <div className="col-span-full py-6 text-center text-sm text-gray-500">
+          هنوز رزروی ثبت نکرده‌اید.
         </div>
       )}
 
-      {data.last_appointments?.map((appointment) => (
-        <Link
-          key={appointment.id}
-          to={`/view-appointment/${appointment.id}`}
-          className="hover:opacity-70 transition-opacity p-4 bg-white dark:bg-gray-700 rounded-xl shadow-sm col-span-full"
-        >
-          <h4 className="text-base text-gray-700 dark:text-gray-300 font-semibold flex items-center justify-between gap-2">
-            <span>{appointment.service?.name ?? "سرویس"}</span>
-            <span
-              className={`${statusColor(appointment.status)} text-sm font-medium shrink-0`}
-            >
-              {appointment.get_status}
-            </span>
-          </h4>
-          {appointment.employee_name && (
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {appointment.employee_name}
-            </p>
-          )}
-        </Link>
-      ))}
+      {data.last_appointments?.map((appointment) => {
+        const meta = statusMeta(appointment.status);
+        return (
+          <Link
+            key={appointment.id}
+            to={`/view-appointment/${appointment.id}`}
+            className="col-span-full rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">
+                {appointment.service?.name ?? "سرویس"}
+              </span>
+              <span
+                className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${meta.chip}`}
+              >
+                {appointment.get_status || appointment.status}
+              </span>
+            </div>
+            {appointment.employee_name && (
+              <p className="mt-1 text-xs text-gray-500">
+                {appointment.employee_name}
+              </p>
+            )}
+          </Link>
+        );
+      })}
     </>
   );
 };
 
 /* -------------------------------------------------------------------------- */
-/* Owner fallback when API still returns type: "user"                          */
+/* Owner fallback                                                             */
 /* -------------------------------------------------------------------------- */
 
-const OwnerLimitedDashboard: React.FC<{ themeColor: string }> = ({
+const OwnerLimitedDashboard: React.FC<{ themeColor: ThemeColorName }> = ({
   themeColor,
-}) => (
-  <div className="col-span-full space-y-4">
-    <div
-      className={`rounded-2xl border border-${themeColor}-100 bg-gradient-to-l from-${themeColor}-50 to-white p-5 shadow-sm dark:border-gray-600 dark:from-gray-800 dark:to-gray-700`}
-    >
-      <div className="flex items-start gap-3">
-        <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-${themeColor}-100 ${themeText[themeColor as ThemeColorName]} dark:bg-${themeColor}-900/40`}
-        >
-          <span className="text-lg animate-spin duration-1000 delay-1000">
-            <GiSandsOfTime />
-          </span>
-        </div>
-        <div>
-          <p className="font-semibold text-gray-800 dark:text-white">
-            گزارش‌های کامل در حال آماده‌سازی است
-          </p>
-          <p className="mt-1.5 text-sm leading-6 text-gray-600 dark:text-gray-300">
-            پنل مدیریت سالن شما فعال است. آمار درآمد و خلاصه رزروها به‌زودی در
-            همین صفحه نمایش داده می‌شود. فعلاً از میانبرهای زیر کسب‌وکارتان را
-            مدیریت کنید.
-          </p>
+}) => {
+  const { data: business } = useBusinessMe();
+  const tc = themeColor;
+
+  return (
+    <div className="col-span-full space-y-4">
+      <SalonQrCard
+        code={business?.random_code}
+        name={business?.name}
+        themeColor={tc}
+      />
+
+      <div
+        className={`rounded-2xl border border-gray-100 p-5 shadow-sm dark:border-gray-700 ${themeBgSoft[tc]}`}
+      >
+        <div className="flex items-start gap-3">
+          <div
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${themeBgSoft[tc]} ${themeText[tc]}`}
+          >
+            <span className="animate-spin text-lg">
+              <GiSandsOfTime />
+            </span>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-800 dark:text-white">
+              گزارش‌های کامل در حال آماده‌سازی است
+            </p>
+            <p className="mt-1.5 text-sm leading-6 text-gray-600 dark:text-gray-300">
+              پنل مدیریت فعال است. فعلاً از میانبرهای زیر سالن را مدیریت کنید.
+            </p>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {[
-        { to: "/manage-employees", label: "آرایشگران" },
-        { to: "/manage-services", label: "خدمات" },
-        { to: "/available-times", label: "زمان‌ها" },
-        { to: "/appointments-list", label: "رزروها" },
-      ].map((item) => (
-        <Link
-          key={item.to}
-          to={item.to}
-          className={`rounded-xl bg-white p-4 text-center text-sm font-medium text-gray-700 shadow-sm transition hover:shadow-md dark:bg-gray-800 dark:text-gray-200 hover:${themeText[themeColor as ThemeColorName]}`}
-        >
-          {item.label}
-        </Link>
-      ))}
-      <Link
-        to="/user-profile"
-        className={`col-span-2 rounded-xl border border-dashed border-${themeColor}-200 bg-white p-4 text-center text-sm font-medium ${themeText[themeColor as ThemeColorName]} shadow-sm dark:border-gray-600 dark:bg-gray-800 sm:col-span-4`}
-      >
-        پروفایل و کد آرایشگاه
-      </Link>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          { to: "/manage-employees", label: "آرایشگران" },
+          { to: "/manage-services", label: "خدمات" },
+          { to: "/available-times", label: "زمان‌ها" },
+          { to: "/manage-appointments", label: "رزروها" },
+        ].map((item) => (
+          <Link
+            key={item.to}
+            to={item.to}
+            className="rounded-xl border border-gray-100 bg-white p-4 text-center text-sm font-medium text-gray-700 shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+          >
+            {item.label}
+          </Link>
+        ))}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 /* -------------------------------------------------------------------------- */
 /* Page                                                                       */
@@ -556,12 +623,6 @@ const Dashboard: React.FC = () => {
     isSuperuser,
   } = useAcl();
 
-  // Optional extra signals if ACL not fully updated yet:
-  // import { useUserType } from "../../context/UserTypeContext";
-  // import { useBusinessMe } from "../../hooks/business/useBusinessMe";
-  // const { userType } = useUserType();
-  // const { isSuccess: hasBusiness } = useBusinessMe();
-
   if (isPending || aclLoading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -573,7 +634,7 @@ const Dashboard: React.FC = () => {
   if (isError) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-4 text-center">
-        <p className="font-medium text-red-500">خطا در دریافت داشبورد</p>
+        <p className="font-medium text-rose-500">خطا در دریافت داشبورد</p>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           {(error as Error)?.message ?? "لطفاً دوباره تلاش کنید."}
         </p>
@@ -581,37 +642,31 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  /**
-   * Client-side owner detection.
-   * Do NOT rely only on dashboardData.type — backend often returns "user"
-   * while the account already has a business / owner flow.
-   */
   const isOwnerClient =
     isBusinessOwner || isOwner || isSuperuser || role === "admin";
-  // || userType === "owner"
-  // || hasBusiness
 
   const apiIsAdmin = isAdminDashboard(dashboardData);
   const apiIsUser = isUserDashboard(dashboardData);
 
-  // Owner never sees customer dashboard
   const showAdminFull = isOwnerClient && apiIsAdmin;
   const showAdminLimited = isOwnerClient && !apiIsAdmin;
   const showUser = !isOwnerClient && apiIsUser;
 
   return (
-    <div className="relative">
+    <div className="relative pb-8">
       {isFetching && !isPending && (
-        <div className="absolute left-0 right-0 top-0 h-0.5 animate-pulse bg-gradient-to-l from-transparent via-current to-transparent opacity-40" />
+        <div
+          className={`absolute left-0 right-0 top-0 h-0.5 animate-pulse opacity-50 ${themeBarFill[themeColor]}`}
+        />
       )}
 
       <motion.div
-        className="grid grid-cols-12 gap-2"
-        initial={{ opacity: 0, y: 24 }}
+        className="grid grid-cols-12 gap-3"
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+        transition={{ duration: 0.35 }}
       >
-        <h3 className="primary-title col-span-full mt-4 dark:text-white">
+        <h3 className="col-span-full mt-2 text-xl font-bold text-gray-900 dark:text-white">
           {isOwnerClient ? "گزارشات کسب‌وکار" : "داشبورد من"}
         </h3>
 

@@ -38,7 +38,7 @@ export const AclProvider: React.FC<AclProviderProps> = ({
     !!userInfo?.is_owner || userType === "owner" || userType === null;
 
   const {
-    // data: businessMe,
+    data: businessMe,
     isLoading: businessLoading,
     isSuccess: hasBusiness,
   } = useBusinessMe();
@@ -51,7 +51,8 @@ export const AclProvider: React.FC<AclProviderProps> = ({
 
   // Owner if flag OR they actually have a business OR chose owner flow
   const isBusinessOwner =
-    isOwnerFlag || isSuperuser || hasBusiness || userType === "owner";
+    isSuperuser || // فقط ادمین پلتفرم اگر لازم است
+    (hasBusiness && businessMe?.is_active !== false);
 
   const isAdmin = isBusinessOwner;
 

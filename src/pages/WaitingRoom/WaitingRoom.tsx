@@ -128,7 +128,7 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({
   return (
     <AnimatePresence>
       <motion.div
-        className="bg-gradient-to-br from-primary-green-50 via-emerald-50 to-teal-50 flex items-center justify-center min-h-screen p-4"
+        className="bg-gradient-to-br from-primary-green-50 via-emerald-50 to-teal-50 flex items-center justify-center min-h-screen"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
@@ -140,7 +140,7 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({
     [scrollbar-width:none]
     [&::-webkit-scrollbar]:hidden"
         >
-          <div className="bg-white shadow-2xl rounded-3xl overflow-hidden">
+          <div className="bg-white shadow-2xl overflow-hidden">
             {/* Header - Fixed height, no scroll */}
             <div className="bg-gradient-to-r from-primary-green-600 via-primary-green-500 to-emerald-600 p-6 sm:p-8 text-white text-center">
               <div className="flex justify-center mb-4">

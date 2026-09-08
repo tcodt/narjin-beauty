@@ -6,6 +6,7 @@ import {
   LuStore,
   LuCircleCheckBig,
   LuCircleAlert,
+  LuScanLine,
 } from "react-icons/lu";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
@@ -13,6 +14,7 @@ import { isAxiosError } from "axios";
 import { useResolveBusiness } from "../../hooks/business/useResolveBusiness";
 import { useJoinedBusiness } from "../../context/JoinedBusinessContext";
 import { BusinessMeResponse } from "../../types/business";
+import QrCodeScanner from "../QrCodeScanner/QrCodeScanner";
 
 type SalonCodeFormProps = {
   title: string;
@@ -41,6 +43,7 @@ const SalonCodeForm: React.FC<SalonCodeFormProps> = ({
   const [code, setCode] = useState("");
   const resolveMutation = useResolveBusiness();
   const { setJoinedBusiness, joinedBusiness } = useJoinedBusiness();
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   const handleSubmit = () => {
     const trimmed = code.trim();
@@ -239,6 +242,7 @@ const SalonCodeForm: React.FC<SalonCodeFormProps> = ({
                   autoFocus
                   className="w-full rounded-xl border-2 border-slate-200 bg-slate-50/50 px-5 py-3.5 text-center text-lg font-bold uppercase tracking-widest text-slate-800 outline-none transition-all duration-200 placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:shadow-lg focus:shadow-emerald-500/10 focus:ring-4 focus:ring-emerald-500/20 dark:border-gray-600 dark:bg-gray-700/50 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:border-emerald-400 dark:focus:bg-gray-700 dark:focus:shadow-emerald-400/10 dark:focus:ring-emerald-400/20"
                 />
+
                 <AnimatePresence>
                   {code.length > 0 && (
                     <motion.div
@@ -252,6 +256,27 @@ const SalonCodeForm: React.FC<SalonCodeFormProps> = ({
                   )}
                 </AnimatePresence>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setScannerOpen(true)}
+                className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+              >
+                <LuScanLine size={18} />
+                اسکن QR کد سالن
+              </button>
+
+              <QrCodeScanner
+                open={scannerOpen}
+                onClose={() => setScannerOpen(false)}
+                onDetected={(value) => {
+                  // فقط رقم‌ها اگر کد عددی است:
+                  const cleaned = value.replace(/\D/g, "") || value.trim();
+                  setCode(cleaned);
+                  toast.success("کد از QR خوانده شد");
+                }}
+              />
+
               <p className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-gray-400">
                 <LuCircleAlert className="h-3.5 w-3.5" />
                 این کد را از مدیر یا مالک سالن دریافت کنید.
