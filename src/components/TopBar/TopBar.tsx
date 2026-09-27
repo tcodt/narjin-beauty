@@ -126,15 +126,20 @@ const TopBar: React.FC = () => {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
     >
+      {/* راست: منو + تم + تنظیمات رنگ + اعلان */}
       <div className="flex items-center gap-1">
         <SidebarToggleButton />
 
+        {/* فقط آیکون تغییر تم (خورشید / ماه) */}
+        <DarkModeToggle variant="compact" />
+
+        {/* gear فقط برای رنگ تم */}
         <button
           type="button"
-          id="theme-toggle"
+          id="theme-color-settings"
           onClick={() => setIsSettingOpen(true)}
           className="flex h-10 w-10 items-center justify-center rounded-xl text-white/95 transition hover:bg-white/15 active:scale-95"
-          aria-label="تنظیمات"
+          aria-label="تنظیمات رنگ"
         >
           <IoSettingsOutline size={22} />
         </button>
@@ -174,24 +179,17 @@ const TopBar: React.FC = () => {
         </div>
       </div>
 
+      {/* مودال فقط رنگ تم — بدون DarkModeToggle */}
       <CustomModal
         isOpen={isSettingOpen}
         onClose={() => setIsSettingOpen(false)}
-        title="تنظیمات ظاهر"
+        title="رنگ تم"
       >
-        <div className="space-y-5">
-          <div>
-            <p className="mb-2 text-sm font-medium text-gray-600 dark:text-gray-300">
-              حالت نمایش
-            </p>
-            <DarkModeToggle />
-          </div>
-          <div>
-            <p className="mb-2 text-sm font-medium text-gray-600 dark:text-gray-300">
-              رنگ تم
-            </p>
-            <ColorPicker />
-          </div>
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            رنگ اصلی برنامه را انتخاب کنید
+          </p>
+          <ColorPicker />
         </div>
       </CustomModal>
 
@@ -249,8 +247,8 @@ const TopBar: React.FC = () => {
               >
                 <button
                   type="button"
-                  onClick={() => handleOpenNotif(notif)}
                   className="w-full p-3 text-right"
+                  onClick={() => handleOpenNotif(notif)}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">

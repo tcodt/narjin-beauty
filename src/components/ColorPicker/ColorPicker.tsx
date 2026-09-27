@@ -1,61 +1,59 @@
-import { useState } from "react";
 import { useThemeColor } from "../../context/ThemeColor";
 import type { ThemeColorName } from "../../context/ThemeColor";
-import { IoIosColorPalette } from "react-icons/io";
 
-const colorOptions: ThemeColorName[] = [
-  "blue",
-  "red",
-  "green",
-  "purple",
-  "yellow",
-  "orange",
-  "primary-green",
+const colorOptions: { name: ThemeColorName; label: string }[] = [
+  { name: "primary-green", label: "سبز اصلی" },
+  { name: "orange", label: "نارنجی" },
+  { name: "blue", label: "آبی" },
+  { name: "red", label: "قرمز" },
+  { name: "green", label: "سبز" },
+  { name: "purple", label: "بنفش" },
+  { name: "yellow", label: "زرد" },
 ];
 
 const ColorPicker = () => {
   const { themeColor, setThemeColor } = useThemeColor();
-  const [isOpen, setIsOpen] = useState(false);
-
-  const handleColorChange = (color: ThemeColorName) => {
-    setThemeColor(color);
-    setIsOpen(false); // Close the color picker after selection
-  };
 
   return (
-    <div className="relative">
-      {/* Settings Icon to toggle color picker */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="p-2 bg-gray-200 dark:bg-gray-600 dark:hover:bg-gray-700 rounded-full hover:bg-gray-300 mb-4 transition"
-        aria-label="Open color picker"
-      >
-        <IoIosColorPalette className={`w-6 h-6 text-${themeColor}-500`} />
-      </button>
-
-      {/* Color Picker Dropdown */}
-      {isOpen && (
-        <div className="mt-4 pb-4">
-          <h3 className="text-gray-600 dark:text-gray-300 text-sm font-semibold mb-2">
-            رنگ تم را انتخاب کنید
-          </h3>
-          <div className="grid grid-cols-3 gap-4">
-            {colorOptions.map((color) => (
-              <button
-                key={color}
-                className={`w-8 h-8 bg-${color}-500 rounded-full hover:scale-110 transition-transform`}
-                onClick={() => handleColorChange(color)}
-                aria-label={`Select ${color} color`}
+    <div className="space-y-3">
+      <div className="grid grid-cols-4 gap-3 sm:grid-cols-7">
+        {colorOptions.map(({ name, label }) => {
+          const selected = themeColor === name;
+          return (
+            <button
+              key={name}
+              type="button"
+              onClick={() => setThemeColor(name)}
+              className={`relative flex h-10 w-10 items-center justify-center rounded-full transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+                selected
+                  ? "ring-2 ring-offset-2 ring-gray-800 dark:ring-white"
+                  : ""
+              }`}
+              style={{ backgroundColor: `var(--color-${name}, currentColor)` }}
+              aria-label={label}
+              title={label}
+            >
+              {/* fallback solid via Tailwind safelist classes */}
+              <span
+                className={`absolute inset-0 rounded-full bg-${name}-500`}
+                aria-hidden
               />
-            ))}
-          </div>
-        </div>
-      )}
-      <hr />
-      <div className="text-gray-600 dark:text-gray-300 mt-4 flex items-center gap-4">
-        تم فعلی:{" "}
-        <div className={`w-6 h-6 bg-${themeColor}-500 rounded-full`}></div>
+              {selected && (
+                <span className="relative z-10 text-xs font-bold text-white drop-shadow">
+                  ✓
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
+      <p className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+        تم فعلی:
+        <span
+          className={`inline-block h-5 w-5 rounded-full bg-${themeColor}-500`}
+          aria-hidden
+        />
+      </p>
     </div>
   );
 };

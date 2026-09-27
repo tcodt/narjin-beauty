@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fa" dir="rtl">
   <head>
     <meta charset="UTF-8" />
@@ -8,24 +8,32 @@
       type="text/css"
       href="//api.bfont.ir/nastali.min.css"
     />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#19705D" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="نارژین" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <link
       rel="stylesheet"
       href="https://unpkg.com/swiper/swiper-bundle.min.css"
     />
-    <title>نارژین | نوبت دهی آنلاین</title>
+    <title>نارژین | نوبت‌دهی آنلاین</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- Default = light. Only enable dark if user explicitly chose it before. -->
     <script>
       try {
-        const saved = localStorage.getItem("darkMode");
-        if (
-          saved === "enabled" ||
-          (!saved && window.matchMedia("(prefers-color-scheme: dark)").matches)
-        ) {
+        if (localStorage.getItem("darkMode") === "enabled") {
           document.documentElement.classList.add("dark");
+        } else {
+          document.documentElement.classList.remove("dark");
         }
       } catch (e) {}
     </script>

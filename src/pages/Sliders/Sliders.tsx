@@ -17,7 +17,7 @@ import PageTitle from "../../components/PageTitle/PageTitle";
 import { useThemeColor } from "../../context/ThemeColor";
 import Dropdown from "../../components/Dropdown/Dropdown";
 import { motion } from "framer-motion";
-import { IoCamera } from "react-icons/io5";
+import { IoCamera, IoImageOutline } from "react-icons/io5";
 import { LuImage } from "react-icons/lu";
 import {
   themeText,
@@ -25,6 +25,7 @@ import {
   themeBorder,
   mediaUrl,
 } from "../../utils/themeClasses";
+import EmptyState from "../../components/EmptyState/EmptyState";
 
 const parentVariants = {
   hidden: { opacity: 0 },
@@ -367,7 +368,15 @@ const Sliders: React.FC = () => {
       >
         <div className="space-y-3">
           {(sliders ?? []).length === 0 ? (
-            <p className="text-center text-sm text-gray-500">بنری وجود ندارد</p>
+            <EmptyState
+              icon={<IoImageOutline />}
+              title="بنری وجود ندارد"
+              description="بنرهای صفحه اصلی را از اینجا مدیریت کنید."
+              action={{
+                label: "افزودن بنر",
+                onClick: () => setIsAddOpen(true),
+              }}
+            />
           ) : (
             (sliders ?? []).map((slider) => (
               <div

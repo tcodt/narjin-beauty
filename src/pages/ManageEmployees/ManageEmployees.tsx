@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import Loading from "../../components/Loading/Loading";
 import toast from "react-hot-toast";
 import { FaRegTrashAlt, FaUser } from "react-icons/fa";
@@ -28,7 +28,14 @@ import {
   getEmployeeImage,
 } from "../../types/employees";
 import { useAuth } from "../../context/AuthContext";
-import { themeBgSolid, themeText } from "../../utils/themeClasses";
+import { themeText } from "../../utils/themeClasses";
+import EmptyState from "../../components/EmptyState/EmptyState";
+import SearchBar from "../../components/SearchBar/SearchBar";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+
+type StatusFilter = "all" | "active" | "inactive";
+
+const API_ORIGIN = "https://queuingprojectapi.pythonanywhere.com";
 
 const ManageEmployees: React.FC = () => {
   const { data: employees = [], isPending, isError, error } = useGetEmployees();
@@ -41,18 +48,22 @@ const ManageEmployees: React.FC = () => {
   const { user } = useAuth();
   const currentUserId = user?.id;
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const debouncedSearch = useDebouncedValue(searchQuery, 250);
+
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isUpdateOpen, setIsUpdateOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
 
-  // Create form
+  // Create — matches EmployeeCreate
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [skill, setSkill] = useState("");
 
-  // Edit form
+  // Edit — matches EmployeeUpdate (first_name, last_name, skill only)
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editFirstName, setEditFirstName] = useState("");
   const [editLastName, setEditLastName] = useState("");
@@ -79,10 +90,31 @@ const ManageEmployees: React.FC = () => {
   };
 
   const openEdit = (emp: GetEmployeesItem) => {
-    console.log(emp);
     setEditingId(emp.id);
-    setEditFirstName(getEmployeeFirstName(emp.user));
-    setEditLastName(getEmployeeLastName(emp.user));
+
+    let first = getEmployeeFirstName(emp.user);
+    let last = getEmployeeLastName(emp.user);
+
+    // اگر user رشته باشد یا last خالی بماند، از display name جدا کن
+    if (!last || first === "بدون نام") {
+      const full = getEmployeeDisplayName(emp.user).trim();
+      if (full && full !== "بدون نام") {
+        const parts = full.split(/\s+/).filter(Boolean);
+        if (parts.length >= 2) {
+          first = parts[0];
+          last = parts.slice(1).join(" ");
+        } else if (parts.length === 1 && (!first || first === "بدون نام")) {
+          first = parts[0];
+          last = "";
+        }
+      }
+    }
+
+    // جلوگیری از پر شدن "بدون نام" داخل اینپوت
+    if (first === "بدون نام") first = "";
+
+    setEditFirstName(first);
+    setEditLastName(last);
     setEditSkill(emp.skill || "");
     setIsUpdateOpen(true);
   };
@@ -99,10 +131,21 @@ const ManageEmployees: React.FC = () => {
         (v) => Array.isArray(v) && v[0],
       ) as string[] | undefined;
       if (first?.[0]) return String(first[0]);
+      // field errors: { phone_number: ["..."] }
+      const msg = Object.entries(data)
+        .map(([k, v]) => {
+          if (Array.isArray(v)) return `${k}: ${v.join(", ")}`;
+          if (typeof v === "string") return `${k}: ${v}`;
+          return null;
+        })
+        .filter(Boolean)
+        .join(" — ");
+      if (msg) return msg;
     }
     return fallback;
   };
 
+  /** POST /business/employees/create/ */
   const handleAddEmployee = () => {
     if (!firstName.trim() || !lastName.trim()) {
       toast.error("نام و نام خانوادگی الزامی است");
@@ -144,10 +187,15 @@ const ManageEmployees: React.FC = () => {
     );
   };
 
+  /** PUT /business/employees/update/{id}/ — only name + skill */
   const handleUpdateEmployee = () => {
     if (!editingId) return;
-    if (!editFirstName.trim() || !editSkill.trim()) {
-      toast.error("نام و مهارت الزامی است");
+    if (!editFirstName.trim() || !editLastName.trim()) {
+      toast.error("نام و نام خانوادگی الزامی است");
+      return;
+    }
+    if (!editSkill.trim()) {
+      toast.error("مهارت الزامی است");
       return;
     }
 
@@ -179,6 +227,7 @@ const ManageEmployees: React.FC = () => {
     );
   };
 
+  /** DELETE /business/employees/{id}/ */
   const handleRemoveEmployee = (emp: GetEmployeesItem) => {
     if (isSelf(emp)) {
       toast.error("نمی‌توانید خودتان را از لیست آرایشگران حذف کنید");
@@ -189,6 +238,7 @@ const ManageEmployees: React.FC = () => {
     removeEmployeeMutation.mutate(emp.id, {
       onSuccess: () => {
         toast.success("آرایشگر حذف شد", { id: toastId });
+        setIsDeleteOpen(false);
         queryClient.invalidateQueries({ queryKey: ["employees"] });
       },
       onError: (err) => {
@@ -198,12 +248,29 @@ const ManageEmployees: React.FC = () => {
     });
   };
 
+  const filteredEmployees = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase();
+    return employees.filter((emp) => {
+      // is_active فقط از user object (اگر string باشد helper → true)
+      const active = getEmployeeIsActive(emp.user);
+      if (statusFilter === "active" && !active) return false;
+      if (statusFilter === "inactive" && active) return false;
+      if (!q) return true;
+
+      const name = getEmployeeDisplayName(emp.user).toLowerCase();
+      const phoneVal = (getEmployeePhone(emp.user) || "").toLowerCase();
+      const skillVal = (emp.skill || "").toLowerCase();
+
+      return name.includes(q) || phoneVal.includes(q) || skillVal.includes(q);
+    });
+  }, [employees, debouncedSearch, statusFilter]);
+
   if (isPending) return <Loading />;
 
   if (isError) {
     console.error(error);
     return (
-      <div className="rounded-2xl bg-rose-50 p-6 text-center text-rose-600">
+      <div className="rounded-2xl bg-rose-50 p-6 text-center text-rose-600 dark:bg-rose-900/20">
         خطا در بارگذاری آرایشگران
       </div>
     );
@@ -211,7 +278,7 @@ const ManageEmployees: React.FC = () => {
 
   return (
     <section className="space-y-6 pb-10">
-      {/* Delete list */}
+      {/* حذف */}
       <CustomModal
         isOpen={isDeleteOpen}
         onClose={() => setIsDeleteOpen(false)}
@@ -228,16 +295,18 @@ const ManageEmployees: React.FC = () => {
                   key={emp.id}
                   className="flex items-center justify-between gap-3 rounded-2xl border-s-4 border-s-rose-500 bg-slate-100 p-3 dark:bg-gray-700"
                 >
-                  <div>
-                    <p className="font-semibold text-gray-800 dark:text-white">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-gray-800 dark:text-white">
                       {getEmployeeDisplayName(emp.user)}
                     </p>
                     <p className="text-xs text-gray-500">{emp.skill || "—"}</p>
                   </div>
                   <button
                     type="button"
-                    className="rounded-full p-2 text-rose-500 hover:bg-rose-50"
+                    className="shrink-0 rounded-full p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
                     onClick={() => handleRemoveEmployee(emp)}
+                    aria-label="حذف"
+                    disabled={removeEmployeeMutation.isPending}
                   >
                     <FaRegTrashAlt />
                   </button>
@@ -247,7 +316,7 @@ const ManageEmployees: React.FC = () => {
         </div>
       </CustomModal>
 
-      {/* Edit form */}
+      {/* ویرایش — فقط first_name, last_name, skill */}
       <CustomModal
         isOpen={isUpdateOpen}
         onClose={() => {
@@ -259,22 +328,27 @@ const ManageEmployees: React.FC = () => {
         <div className="flex flex-col gap-3">
           <input
             className="primary-input"
-            placeholder="نام"
+            placeholder="نام *"
             value={editFirstName}
             onChange={(e) => setEditFirstName(e.target.value)}
+            autoComplete="given-name"
           />
+
           <input
             className="primary-input"
-            placeholder="نام خانوادگی"
+            placeholder="نام خانوادگی *"
             value={editLastName}
             onChange={(e) => setEditLastName(e.target.value)}
+            autoComplete="family-name"
           />
+
           <textarea
             className="primary-input min-h-[80px]"
-            placeholder="مهارت‌ها"
+            placeholder="مهارت‌ها *"
             value={editSkill}
             onChange={(e) => setEditSkill(e.target.value)}
           />
+
           <Button
             type="button"
             variant="primary"
@@ -286,7 +360,7 @@ const ManageEmployees: React.FC = () => {
         </div>
       </CustomModal>
 
-      {/* Add form — NO users list */}
+      {/* افزودن — EmployeeCreate */}
       <CustomModal
         isOpen={isAddOpen}
         onClose={() => {
@@ -305,12 +379,14 @@ const ManageEmployees: React.FC = () => {
             placeholder="نام *"
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
+            autoComplete="given-name"
           />
           <input
             className="primary-input"
             placeholder="نام خانوادگی *"
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
+            autoComplete="family-name"
           />
           <input
             className="primary-input"
@@ -321,6 +397,8 @@ const ManageEmployees: React.FC = () => {
             onChange={(e) =>
               setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))
             }
+            autoComplete="tel"
+            dir="ltr"
           />
           <input
             className="primary-input"
@@ -328,6 +406,7 @@ const ManageEmployees: React.FC = () => {
             placeholder="رمز عبور (اختیاری)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
           />
           <textarea
             className="primary-input min-h-[80px]"
@@ -346,7 +425,8 @@ const ManageEmployees: React.FC = () => {
         </div>
       </CustomModal>
 
-      <div className="mt-8 flex items-center justify-between">
+      {/* Header */}
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
         <PageTitle title="آرایشگران" />
         <Dropdown
           isAddOpen={isAddOpen}
@@ -361,30 +441,66 @@ const ManageEmployees: React.FC = () => {
         />
       </div>
 
-      {!employees.length ? (
-        <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-14 text-center dark:border-gray-600 dark:bg-gray-800">
-          <div
-            className={`mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-${themeColor}-50 ${themeText[themeColor as ThemeColorName]}`}
-          >
-            <FaUser size={22} />
-          </div>
-          <p className="font-semibold text-gray-800 dark:text-white">
-            هنوز آرایشگری ثبت نشده
-          </p>
-          <p className="mt-1 text-sm text-gray-500">
-            نام، موبایل و مهارت آرایشگر را وارد کنید.
-          </p>
-          <button
-            type="button"
-            onClick={openAdd}
-            className={`mt-4 rounded-xl ${themeBgSolid[themeColor]} px-4 py-2.5 text-sm font-semibold text-white`}
-          >
-            افزودن آرایشگر
-          </button>
+      {/* Search + status filter */}
+      <div className="space-y-3">
+        <SearchBar
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="جستجو نام، موبایل یا مهارت..."
+          resultCount={filteredEmployees.length}
+          totalCount={employees.length}
+        />
+
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {(
+            [
+              { key: "all", label: "همه" },
+              { key: "active", label: "فعال" },
+              { key: "inactive", label: "غیرفعال" },
+            ] as const
+          ).map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setStatusFilter(f.key)}
+              className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+                statusFilter === f.key
+                  ? `bg-${themeColor}-500 text-white shadow`
+                  : "border border-gray-200 bg-white text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
+      </div>
+
+      {!employees.length ? (
+        <EmptyState
+          icon={<FaUser />}
+          title="آرایشگری ثبت نشده"
+          description="اعضای تیم خود را اضافه کنید تا بتوانید سرویس و نوبت‌ها را مدیریت کنید."
+          action={{
+            label: "افزودن آرایشگر",
+            onClick: openAdd,
+          }}
+        />
+      ) : filteredEmployees.length === 0 ? (
+        <EmptyState
+          icon={<FaUser />}
+          title="نتیجه‌ای پیدا نشد"
+          description="عبارت جستجو یا فیلتر وضعیت را تغییر دهید."
+          secondaryAction={{
+            label: "پاک کردن فیلترها",
+            onClick: () => {
+              setSearchQuery("");
+              setStatusFilter("all");
+            },
+          }}
+        />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {employees.map((employee) => {
+          {filteredEmployees.map((employee) => {
             const name = getEmployeeDisplayName(employee.user);
             const phoneLabel = getEmployeePhone(employee.user);
             const active = getEmployeeIsActive(employee.user);
@@ -394,6 +510,11 @@ const ManageEmployees: React.FC = () => {
             const skillLabel = employee.skill?.trim() || "بدون مهارت ثبت‌شده";
             const image = getEmployeeImage(employee.user);
             const roleLabel = owner ? "مالک" : staff ? "آرایشگر" : "کاربر";
+            const imageSrc = image
+              ? image.startsWith("http")
+                ? image
+                : `${API_ORIGIN}${image}`
+              : null;
 
             return (
               <motion.article
@@ -410,13 +531,9 @@ const ManageEmployees: React.FC = () => {
                   <div
                     className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-${themeColor}-50 ${themeText[themeColor as ThemeColorName]}`}
                   >
-                    {image ? (
+                    {imageSrc ? (
                       <img
-                        src={
-                          image.startsWith("http")
-                            ? image
-                            : `https://queuingprojectapi.pythonanywhere.com${image}`
-                        }
+                        src={imageSrc}
                         alt={name}
                         className="h-full w-full object-cover"
                       />
@@ -443,8 +560,8 @@ const ManageEmployees: React.FC = () => {
                       <span
                         className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
                           active
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-rose-50 text-rose-600"
+                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                            : "bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300"
                         }`}
                       >
                         {active ? "فعال" : "غیرفعال"}
@@ -478,7 +595,8 @@ const ManageEmployees: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleRemoveEmployee(employee)}
-                          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-rose-50 py-2 text-xs font-semibold text-rose-600"
+                          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-rose-50 py-2 text-xs font-semibold text-rose-600 dark:bg-rose-900/30"
+                          disabled={removeEmployeeMutation.isPending}
                         >
                           <FaRegTrashAlt size={12} />
                           حذف

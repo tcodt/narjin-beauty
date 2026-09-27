@@ -10,7 +10,6 @@ import {
   LuClock3,
   LuScissors,
 } from "react-icons/lu";
-import { PiFilesDuotone } from "react-icons/pi";
 import PageTitle from "../../components/PageTitle/PageTitle";
 import Dots from "../../components/Dots/Dots";
 import Button from "../../components/Button/Button";
@@ -20,6 +19,10 @@ import { useUpdateBusinessAppointment } from "../../hooks/appointments/useUpdate
 import { BusinessAppointment } from "../../services/appointments/getBusinessAppointments";
 import { toPersianLabel, formatTime } from "../../utils/date";
 import { themeBgSolid, themeText } from "../../utils/themeClasses";
+import EmptyState from "../../components/EmptyState/EmptyState";
+import { IoCalendarOutline } from "react-icons/io5";
+import SearchBar from "../../components/SearchBar/SearchBar";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 
 type FilterKey = "today" | "pending" | "confirmed" | "canceled" | "all";
 
@@ -84,6 +87,8 @@ const ManageAppointments: React.FC = () => {
   const { themeColor } = useThemeColor();
   const [filter, setFilter] = useState<FilterKey>("pending");
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebouncedValue(searchQuery, 250);
 
   const {
     data: appointments = [],
@@ -157,6 +162,17 @@ const ManageAppointments: React.FC = () => {
     }
   };
 
+  const visibleAppointments = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter((item) => {
+      const name = (item.customer_name || "").toLowerCase();
+      const phone = (item.customer_phone || "").toLowerCase();
+      const service = (item.service_name || "").toLowerCase();
+      return name.includes(q) || phone.includes(q) || service.includes(q);
+    });
+  }, [sorted, debouncedSearch]);
+
   if (isLoading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
@@ -189,6 +205,16 @@ const ManageAppointments: React.FC = () => {
         >
           {isFetching ? "..." : "بروزرسانی"}
         </button>
+
+        <div className="w-full">
+          <SearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="جستجو نام مشتری، موبایل یا سرویس..."
+            resultCount={visibleAppointments.length}
+            totalCount={sorted.length}
+          />
+        </div>
       </div>
 
       <p className="text-xs leading-6 text-gray-500 dark:text-gray-400">
@@ -221,16 +247,15 @@ const ManageAppointments: React.FC = () => {
         })}
       </div>
 
-      {sorted.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-200 bg-white py-16 dark:border-gray-600 dark:bg-gray-800">
-          <PiFilesDuotone size={52} className="text-gray-400" />
-          <p className="font-semibold text-gray-800 dark:text-gray-200">
-            موردی در این فیلتر نیست
-          </p>
-        </div>
+      {visibleAppointments.length === 0 ? (
+        <EmptyState
+          icon={<IoCalendarOutline />}
+          title="نوبتی برای نمایش نیست"
+          description="وقتی مشتری رزرو کند، نوبت‌ها اینجا نمایش داده می‌شوند."
+        />
       ) : (
         <div className="space-y-3">
-          {sorted.map((item) => {
+          {visibleAppointments.map((item) => {
             const meta = statusMeta(item.status);
             const canAct = item.status === "pending" && busyId !== item.id;
             return (

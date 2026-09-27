@@ -7,6 +7,8 @@ import rtlPlugin from "stylis-plugin-rtl";
 import { CacheProvider } from "@emotion/react";
 import { Toaster } from "react-hot-toast";
 import { SidebarProvider } from "./context/SidebarContext";
+import MobileOnlyGuard from "./components/MobileOnlyGuard/MobileOnlyGuard";
+import PwaInstallPrompt from "./components/PwaInstallPrompt/PwaInstallPrompt";
 
 const App: React.FC = () => {
   const cacheRtl = createCache({
@@ -21,11 +23,11 @@ const App: React.FC = () => {
     },
     palette: {
       primary: {
-        main: "#f97316",
+        main: "#19705D",
         contrastText: "#fff",
       },
       secondary: {
-        main: "#ea580c",
+        main: "#14584b",
       },
     },
   });
@@ -34,8 +36,11 @@ const App: React.FC = () => {
     <CacheProvider value={cacheRtl}>
       <ThemeProvider theme={theme}>
         <SidebarProvider>
-          <AppRoutes />
-          <Toaster position="top-center" />
+          <MobileOnlyGuard>
+            <AppRoutes />
+            <PwaInstallPrompt />
+            <Toaster position="top-center" />
+          </MobileOnlyGuard>
         </SidebarProvider>
       </ThemeProvider>
     </CacheProvider>

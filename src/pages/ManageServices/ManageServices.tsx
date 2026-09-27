@@ -27,6 +27,9 @@ import {
   getEmployeeImage,
 } from "../../types/employees";
 import { useBusinessMe } from "../../hooks/business/useBusinessMe";
+import EmptyState from "../../components/EmptyState/EmptyState";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import SearchBar from "../../components/SearchBar/SearchBar";
 
 type FormValues = {
   name: string;
@@ -92,6 +95,9 @@ const ManageServices: React.FC = () => {
   const addServiceMutation = useAddService();
   const updateServiceMutation = useUpdateService();
   const { themeColor } = useThemeColor();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [employeeFilter, setEmployeeFilter] = useState<number | "all">("all");
+  const debouncedSearch = useDebouncedValue(searchQuery, 250);
 
   const myBusinessId = businessMe?.id;
 
@@ -250,6 +256,29 @@ const ManageServices: React.FC = () => {
       },
     });
   };
+
+  const filteredServices = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase();
+    return ownerServices.filter((s) => {
+      const matchEmployee =
+        employeeFilter === "all" || extractEmployeeId(s) === employeeFilter;
+
+      if (!matchEmployee) return false;
+      if (!q) return true;
+
+      const name = (s.name ?? "").toLowerCase();
+      const desc = (s.description ?? "").toLowerCase();
+      const empName = getEmployeeDisplayName(s.employee?.user).toLowerCase();
+      const price = String(s.price ?? "");
+
+      return (
+        name.includes(q) ||
+        desc.includes(q) ||
+        empName.includes(q) ||
+        price.includes(q)
+      );
+    });
+  }, [ownerServices, debouncedSearch, employeeFilter]);
 
   if (isPending || businessLoading) return <Loading />;
 
@@ -443,8 +472,9 @@ const ManageServices: React.FC = () => {
       </CustomModal>
 
       {/* Header */}
-      <div className="mt-8 flex flex-row items-center justify-between">
+      <div className="mt-8 flex flex-row flex-wrap gap-4 items-center justify-between">
         <PageTitle title="خدمات" />
+
         <div className="flex flex-row flex-wrap items-center gap-2">
           <Dropdown
             isAddOpen={isAddOpen}
@@ -458,6 +488,46 @@ const ManageServices: React.FC = () => {
             setIsDeleteOpen={setIsDeleteOpen}
           />
         </div>
+        {/* Search + filter */}
+        <div className="space-y-3 w-full">
+          <SearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="جستجو نام سرویس، توضیح، آرایشگر یا قیمت..."
+            resultCount={filteredServices.length}
+            totalCount={ownerServices.length}
+          />
+
+          {employees.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              <button
+                type="button"
+                onClick={() => setEmployeeFilter("all")}
+                className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+                  employeeFilter === "all"
+                    ? `bg-${themeColor}-500 text-white shadow`
+                    : "border border-gray-200 bg-white text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                }`}
+              >
+                همه
+              </button>
+              {employees.map((emp) => (
+                <button
+                  key={emp.id}
+                  type="button"
+                  onClick={() => setEmployeeFilter(emp.id)}
+                  className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+                    employeeFilter === emp.id
+                      ? `bg-${themeColor}-500 text-white shadow`
+                      : "border border-gray-200 bg-white text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                  }`}
+                >
+                  {getEmployeeDisplayName(emp.user)}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {isFetching && !isPending && (
@@ -466,20 +536,31 @@ const ManageServices: React.FC = () => {
 
       {/* Single list — no duplicate maps */}
       {!ownerServices.length ? (
-        <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-14 text-center dark:border-gray-600 dark:bg-gray-800">
-          <p className="font-semibold text-gray-800 dark:text-white">
-            هیچ سرویسی وجود ندارد
-          </p>
-          <p className="mt-1 text-sm text-gray-500">
-            اولین سرویس سالن خود را اضافه کنید.
-          </p>
-          <Button type="button" className="mt-4" onClick={openAddModal}>
-            افزودن سرویس
-          </Button>
-        </div>
+        <EmptyState
+          icon={<MdOutlineRoomService />}
+          title="هنوز سرویسی ثبت نشده"
+          description="اولین سرویس سالن را اضافه کنید تا مشتریان بتوانند نوبت بگیرند."
+          action={{
+            label: "افزودن سرویس",
+            onClick: openAddModal,
+          }}
+        />
+      ) : filteredServices.length === 0 ? (
+        <EmptyState
+          icon={<MdOutlineRoomService />}
+          title="نتیجه‌ای پیدا نشد"
+          description="عبارت جستجو یا فیلتر آرایشگر را تغییر دهید."
+          secondaryAction={{
+            label: "پاک کردن فیلترها",
+            onClick: () => {
+              setSearchQuery("");
+              setEmployeeFilter("all");
+            },
+          }}
+        />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {ownerServices.map((service) => {
+          {filteredServices.map((service) => {
             const img = getEmployeeImage(service.employee?.user);
             return (
               <motion.article

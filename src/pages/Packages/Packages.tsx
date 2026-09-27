@@ -32,7 +32,8 @@ import {
   themeText,
   themeBorder,
 } from "../../utils/themeClasses";
-import { LuPackage } from "react-icons/lu";
+import EmptyState from "../../components/EmptyState/EmptyState";
+import { BiPackage } from "react-icons/bi";
 
 const parentVariants = {
   hidden: { opacity: 0 },
@@ -444,15 +445,15 @@ const Packages: React.FC = () => {
 
       {/* LIST — card UI */}
       {packages.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-gray-200 bg-white py-16 dark:border-gray-600 dark:bg-gray-800">
-          <LuPackage size={48} className="text-gray-300" />
-          <p className="font-semibold text-gray-700 dark:text-gray-200">
-            هنوز پکیجی ثبت نشده
-          </p>
-          <Button type="button" onClick={() => setIsAddOpen(true)}>
-            افزودن پکیج
-          </Button>
-        </div>
+        <EmptyState
+          icon={<BiPackage className="h-10 w-10" />}
+          title="پکیجی وجود ندارد"
+          description="پکیج‌های ترکیبی سرویس بسازید تا فروش و رزرو راحت‌تر شود."
+          action={{
+            label: "ساخت پکیج",
+            onClick: () => setIsAddOpen(true), // یا تابع باز کردن مودال خودت
+          }}
+        />
       ) : (
         <motion.div
           className="grid grid-cols-1 gap-4 sm:grid-cols-2"
