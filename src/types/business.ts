@@ -14,6 +14,7 @@ export interface BusinessItem {
   slug?: string;
   random_code?: string;
   is_active?: boolean;
+  logo?: string | null;
 }
 
 export interface BusinessResponse {

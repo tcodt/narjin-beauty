@@ -20,6 +20,7 @@ import { useAcl } from "../../context/AclContext";
 import { logoMap } from "../../utils/logoMap";
 import { motion } from "framer-motion";
 import { themeGradientBar, themeText } from "../../utils/themeClasses";
+import { FiCreditCard, FiFileText, FiUsers } from "react-icons/fi";
 
 const parentVariants = {
   hidden: { opacity: 0 },
@@ -163,6 +164,27 @@ const Sidebar: React.FC = () => {
       ownerOnly: true,
     },
     {
+      icon: <FiUsers className="h-5 w-5" />,
+      label: "مشتریان",
+      path: "/customers-list",
+      requiredPermission: "customers-list", //! Need to check if this is correct permission name
+      ownerOnly: true,
+    },
+    {
+      icon: <FiCreditCard className="h-5 w-5" />,
+      label: "کارت‌های بانکی",
+      path: "/bank-cards",
+      requiredPermission: "bank_cards", //! Need to check if this is correct permission name
+      ownerOnly: true,
+    },
+    {
+      icon: <FiFileText className="h-5 w-5" />,
+      label: "فیش‌های پرداخت",
+      path: "/manual-payments",
+      requiredPermission: "payments_record", //! Need to check if this is correct permission name
+      ownerOnly: true,
+    },
+    {
       icon: <MdPerson size={20} />,
       label: "پروفایل",
       path: "/user-profile",
@@ -186,6 +208,45 @@ const Sidebar: React.FC = () => {
 
   return (
     <>
+      <style>{`
+        .sidebar-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: transparent transparent;
+          transition: scrollbar-color 0.3s ease;
+        }
+        .sidebar-scroll:hover {
+          scrollbar-color: rgba(156, 163, 175, 0.4) transparent;
+        }
+        /* WebKit (Chrome, Safari, Edge) */
+        .sidebar-scroll::-webkit-scrollbar {
+          width: 6px;
+          background: transparent;
+        }
+        .sidebar-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+          background: transparent;
+          border-radius: 9999px;
+          transition: background 0.3s ease;
+        }
+        .sidebar-scroll:hover::-webkit-scrollbar-thumb {
+          background: rgba(156, 163, 175, 0.4);
+        }
+        .sidebar-scroll:hover::-webkit-scrollbar-thumb:hover {
+          background: rgba(156, 163, 175, 0.6);
+        }
+        .dark .sidebar-scroll:hover::-webkit-scrollbar-thumb {
+          background: rgba(107, 114, 128, 0.5);
+        }
+        .dark .sidebar-scroll:hover::-webkit-scrollbar-thumb:hover {
+          background: rgba(107, 114, 128, 0.7);
+        }
+        .dark .sidebar-scroll:hover {
+          scrollbar-color: rgba(107, 114, 128, 0.5) transparent;
+        }
+      `}</style>
+
       {isSidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] transition-opacity"
@@ -216,7 +277,7 @@ const Sidebar: React.FC = () => {
         </div>
 
         {/* Links */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <nav className="sidebar-scroll flex-1 overflow-y-auto px-3 py-4">
           <motion.ul
             className="space-y-1"
             variants={parentVariants}

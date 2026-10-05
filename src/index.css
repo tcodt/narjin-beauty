@@ -1,105 +1,151 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
+@import "tailwindcss";
 @plugin "daisyui";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-:root {
-  /* --theme-color: #f97316; Default to orange-500 hex */
-  --theme-color: #19705d; /* Default to orange-500 hex */
+/* ============================================================ */
+/*  THEME — all custom tokens go here (v4 CSS-first)             */
+/* ============================================================ */
+@theme {
+  /* -------- primary-green palette -------- */
+  --color-primary-green-50: #e6f4f0;
+  --color-primary-green-100: #d1f0e8;
+  --color-primary-green-200: #a3e0d1;
+  --color-primary-green-300: #75d1ba;
+  --color-primary-green-400: #47c1a3;
+  --color-primary-green-500: #19705d;
+  --color-primary-green-600: #14584b;
+  --color-primary-green-700: #0f4038;
+  --color-primary-green-800: #0a2826;
+  --color-primary-green-900: #051013;
+
+  /* -------- app font -------- */
+  --font-main: "mainFont", sans-serif;
 }
 
+/* ============================================================ */
+/*  SAFELIST — v4 replacement for tailwind.config safelist       */
+/*  Ensures these dynamically-referenced classes are generated   */
+/* ============================================================ */
+
+/* ---------- primary-green ---------- */
+@source inline("{bg,text,border,from,to}-primary-green-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("{hover:,focus:,dark:,dark:hover:,dark:focus:}{bg,text,border,from,to}-primary-green-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("{border,border-b-2,border-s}-primary-green-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("marker:text-primary-green-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("accent-primary-green-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("bg-gradient-to-br from-primary-green-{50,100,200,300,400,500,600,700,800,900}");
+
+/* ---------- orange ---------- */
+@source inline("{bg,text,border,from,to}-orange-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("{hover:,focus:,dark:,dark:hover:,dark:focus:}{bg,text,border,from,to}-orange-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("{border,border-b-2,border-s}-orange-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("marker:text-orange-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("accent-orange-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("bg-gradient-to-br from-orange-{50,100,200,300,400,500,600,700,800,900}");
+
+/* ---------- blue ---------- */
+@source inline("{bg,text,border,from,to}-blue-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("{hover:,focus:,dark:,dark:hover:,dark:focus:}{bg,text,border,from,to}-blue-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("{border,border-b-2,border-s}-blue-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("marker:text-blue-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("accent-blue-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("bg-gradient-to-br from-blue-{50,100,200,300,400,500,600,700,800,900}");
+
+/* ---------- red ---------- */
+@source inline("{bg,text,border,from,to}-red-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("{hover:,focus:,dark:,dark:hover:,dark:focus:}{bg,text,border,from,to}-red-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("{border,border-b-2,border-s}-red-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("marker:text-red-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("accent-red-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("bg-gradient-to-br from-red-{50,100,200,300,400,500,600,700,800,900}");
+
+/* ---------- green ---------- */
+@source inline("{bg,text,border,from,to}-green-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("{hover:,focus:,dark:,dark:hover:,dark:focus:}{bg,text,border,from,to}-green-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("{border,border-b-2,border-s}-green-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("marker:text-green-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("accent-green-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("bg-gradient-to-br from-green-{50,100,200,300,400,500,600,700,800,900}");
+
+/* ============================================================ */
+/*  THEME COLOR (dynamic via JS)                                 */
+/* ============================================================ */
+:root {
+  --theme-color: #19705d;
+}
+
+/* ============================================================ */
+/*  COMPONENTS                                                   */
+/* ============================================================ */
 @layer components {
   .primary-btn {
-    width: theme("width.full");
-    height: theme("height.12");
-    background-color: theme("backgroundColor.orange.500");
-    color: theme("colors.white");
-    font-size: theme("fontSize.base");
-    font-weight: theme("fontWeight.medium");
-    border-radius: theme("borderRadius.full");
-    padding: theme("padding.2") theme("padding.4");
+    width: 100%;
+    height: 3rem;
+    background-color: #f97316;
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 500;
+    border-radius: 9999px;
+    padding: 0.5rem 1rem;
     cursor: pointer;
     transition: background-color 0.3s;
-
-    &:hover {
-      background-color: theme("backgroundColor.orange.600");
-    }
+  }
+  .primary-btn:hover {
+    background-color: #ea580c;
   }
 
   .primary-title {
-    color: theme("colors.gray.800");
-    font-size: theme("fontSize.2xl");
-    font-weight: theme("fontWeight.semibold");
+    color: #1f2937;
+    font-size: 1.25rem;
+    font-weight: 600;
   }
 
   .primary-input {
-    outline: 2px solid theme("colors.gray.300");
-    background-color: theme("colors.white");
-    padding: theme("padding.2") theme("padding.4");
-    border-radius: theme("borderRadius.xl");
-    color: theme("colors.gray.800");
-    font-weight: theme("fontWeight.medium");
-    height: theme("height.12");
-    width: theme("width.full");
+    outline: 2px solid #d1d5db;
+    background-color: #ffffff;
+    padding: 0.5rem 1rem;
+    border-radius: 0.75rem;
+    color: #1f2937;
+    font-weight: 500;
+    height: 3rem;
+    width: 100%;
   }
-
-  .primary-input-green {
-    outline: 2px solid theme("colors.gray.300");
-    background-color: theme("colors.white");
-    padding: theme("padding.2") theme("padding.4");
-    border-radius: theme("borderRadius.xl");
-    color: theme("colors.gray.800");
-    font-weight: theme("fontWeight.medium");
-    height: theme("height.12");
-    width: theme("width.full");
-  }
-
-  .primary-input-green:focus {
-    outline-color: theme("colors.primary-green.500");
-  }
-
-  :where(.dark) .primary-input-green {
-    background-color: theme("colors.gray.700");
-    color: theme("colors.gray.100");
-    outline-color: theme("colors.gray.500");
-  }
-
-  :where(.dark) .primary-input-green:focus {
-    outline-color: theme("colors.primary-green.500");
-  }
-
   .primary-input:focus {
     outline-color: var(--theme-color);
   }
 
-  :where(.dark) .primary-input {
-    background-color: theme("colors.gray.700");
-    color: theme("colors.gray.100");
-    outline-color: theme("colors.gray.500");
+  .primary-input-green {
+    outline: 2px solid #d1d5db;
+    background-color: #ffffff;
+    padding: 0.5rem 1rem;
+    border-radius: 0.75rem;
+    color: #1f2937;
+    font-weight: 500;
+    height: 3rem;
+    width: 100%;
+  }
+  .primary-input-green:focus {
+    outline-color: var(--color-primary-green-500);
   }
 
-  .primary-title {
-    color: theme("colors.gray.800");
-    font-size: theme("fontSize.xl");
-    font-weight: theme("fontWeight.semibold");
+  :where(.dark) .primary-input,
+  :where(.dark) .primary-input-green {
+    background-color: #374151;
+    color: #f3f4f6;
+    outline-color: #6b7280;
   }
-
-  /* @layer components {
-    .app-card {
-      @apply rounded-2xl border border-gray-100 bg-white p-4 shadow-sm
-      transition hover:shadow-md
-      dark:border-gray-700 dark:bg-gray-800;
-    }
-
-    .app-card-pressable {
-      @apply app-card active:scale-[0.99] cursor-pointer;
-    }
-  } */
+  :where(.dark) .primary-input:focus {
+    outline-color: var(--theme-color);
+  }
+  :where(.dark) .primary-input-green:focus {
+    outline-color: var(--color-primary-green-500);
+  }
 }
 
+/* ============================================================ */
+/*  FONTS                                                        */
+/* ============================================================ */
 @font-face {
   font-family: "mainFont";
   src: url("/fonts/IranSansX(Pro)/Farsi numerals/IRANSansXFaNum-Regular.ttf");
@@ -107,8 +153,8 @@
 
 body,
 html {
-  font-family: "mainFont" !important;
-  background-color: theme("colors.slate.100");
+  font-family: var(--font-main) !important;
+  background-color: #f1f5f9; /* slate-100 */
   height: 100%;
   margin: 0;
   padding: 0;
@@ -117,13 +163,16 @@ html {
 
 .dark body,
 .dark html {
-  background-color: theme("colors.gray.900");
+  background-color: #111827; /* gray-900 */
 }
 
 .Toastify__toast {
-  font-family: "mainFont" !important;
+  font-family: var(--font-main) !important;
 }
 
+/* ============================================================ */
+/*  AUTH BACKGROUND                                              */
+/* ============================================================ */
 #auth_bg {
   background-image: url("/images/authImage/auth-pic-3.jpg");
   background-repeat: no-repeat;
@@ -133,7 +182,6 @@ html {
   position: relative;
   width: 100vw;
   height: 100vh;
-  overflow: hidden;
   margin: 0;
 }
 
@@ -154,27 +202,31 @@ html {
   position: relative;
 }
 
+/* ============================================================ */
+/*  SWIPER                                                       */
+/* ============================================================ */
 .swiper-pagination {
   display: none;
 }
 
+/* ============================================================ */
+/*  DRIVER.JS — Salon theme (RTL)                                */
+/* ============================================================ */
 #driver-popover-content,
 #driver-popover-title,
 #driver-popover-description,
 .driver-popover-footer,
 .driver-popover-prev-btn,
 .driver-popover-next-btn {
-  font-family: "mainFont" !important;
+  font-family: var(--font-main) !important;
 }
 
 .driver-overlay {
   pointer-events: auto;
 }
-
 .driver-no-interaction {
   pointer-events: none !important;
 }
-
 .driver-active .topbar-motion-fix {
   transform: none !important;
 }
@@ -195,7 +247,6 @@ html {
   }
 }
 
-/* ========== Driver.js — salon theme (RTL) ========== */
 .driver-popover.salon-driver-theme {
   background: #ffffff;
   color: #1f2937;
@@ -205,7 +256,7 @@ html {
     0 0 0 1px rgba(0, 0, 0, 0.04);
   padding: 1.25rem 1.25rem 1rem;
   max-width: min(320px, calc(100vw - 2rem));
-  font-family: "mainFont", sans-serif !important;
+  font-family: var(--font-main) !important;
   direction: rtl;
   text-align: right;
 }
@@ -240,6 +291,9 @@ html {
   font-size: 0.75rem;
   color: #9ca3af;
   font-variant-numeric: tabular-nums;
+  direction: ltr;
+  unicode-bidi: isolate;
+  letter-spacing: 0.02em;
 }
 
 .driver-popover.salon-driver-theme .driver-popover-navigation-btns {
@@ -257,7 +311,7 @@ html {
   padding: 0.5rem 1.1rem !important;
   font-size: 0.8125rem !important;
   font-weight: 600 !important;
-  font-family: "mainFont", sans-serif !important;
+  font-family: var(--font-main) !important;
   cursor: pointer;
   transition:
     opacity 0.2s,
@@ -268,7 +322,6 @@ html {
   background: #f3f4f6 !important;
   color: #4b5563 !important;
 }
-
 .dark .driver-popover.salon-driver-theme .driver-popover-prev-btn {
   background: #374151 !important;
   color: #e5e7eb !important;
@@ -289,7 +342,6 @@ html {
   color: #9ca3af;
   transition: color 0.15s;
 }
-
 .driver-popover.salon-driver-theme .driver-popover-close-btn:hover {
   color: #ef4444;
 }
@@ -310,11 +362,4 @@ html {
 
 .driver-active-element {
   border-radius: 1rem !important;
-}
-
-.driver-popover.salon-driver-theme .driver-popover-progress-text {
-  direction: ltr;
-  unicode-bidi: isolate;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
 }

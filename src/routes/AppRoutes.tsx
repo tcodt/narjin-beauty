@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -54,6 +54,9 @@ import { RoleRoute } from "./RoleRoute";
 import JoinSalon from "../pages/JoinSalon/JoinSalon";
 import Dots from "../components/Dots/Dots";
 import ManageAppointments from "../pages/ManageAppointments/ManageAppointments";
+import CustomersList from "../pages/CustomersList/CustomersList";
+import BankCards from "../pages/BankCards/BankCards";
+import ManualPayments from "../pages/ManualPayments/ManualPayments";
 
 /* -------------------------------------------------------------------------- */
 /* Network wrapper                                                            */
@@ -67,17 +70,35 @@ const NetworkStatusWrapper: React.FC<{ children: React.ReactNode }> = ({
 };
 
 const PostAuthRedirect: React.FC = () => {
-  const { userType, isReady } = useUserType();
-  if (!isReady) {
+  const { userType, isReady, setUserType } = useUserType();
+  const { user, isLoading: authLoading } = useAuth();
+
+  const isOwner = !!user?.is_owner;
+
+  // همگام‌سازی userType با API (یک‌بار)
+  useEffect(() => {
+    if (authLoading || !isReady || !user) return;
+    if (isOwner && userType !== "owner") {
+      setUserType("owner");
+    } else if (!isOwner && userType !== "customer" && userType !== "owner") {
+      setUserType("customer");
+    }
+  }, [authLoading, isReady, user, isOwner, userType, setUserType]);
+
+  if (authLoading || !isReady) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Dots />
       </div>
     );
   }
-  if (!userType) return <Navigate to="/role-authentication" replace />;
-  if (userType === "owner") return <Navigate to="/dashboard" replace />;
-  return <Navigate to="/home" replace />;
+
+  if (isOwner || userType === "owner") {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  const joined = localStorage.getItem("joinedBusiness");
+  return <Navigate to={joined ? "/home" : "/join-salon"} replace />;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -93,8 +114,18 @@ const OnboardingOnly: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
-  const { userType, isReady } = useUserType();
+  const { userType, isReady, setUserType } = useUserType();
   const location = useLocation();
+
+  const profileOwner = !!user?.is_owner;
+  const hasJoinedSalon = !!localStorage.getItem("joinedBusiness");
+
+  useEffect(() => {
+    if (authLoading || !isReady || !user) return;
+    if (profileOwner && userType !== "owner") {
+      setUserType("owner");
+    }
+  }, [authLoading, isReady, user, profileOwner, userType, setUserType]);
 
   if (authLoading || !isReady) {
     return (
@@ -108,29 +139,26 @@ const OnboardingOnly: React.FC<{ children: React.ReactNode }> = ({
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
-  const hasJoinedSalon = !!localStorage.getItem("joinedBusiness");
-  const profileOwner = !!(user as { is_owner?: boolean } | null)?.is_owner;
+  // مالک واقعی ← همیشه داشبورد (نه role-selection)
+  if (profileOwner) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
-  // Always allow role selection when role is missing
   if (location.pathname === "/role-authentication") {
-    // Only skip if they already finished a full path
     if (userType === "customer" && hasJoinedSalon) {
       return <Navigate to="/home" replace />;
     }
-    if (userType === "owner" && profileOwner) {
+    if (userType === "owner") {
       return <Navigate to="/dashboard" replace />;
     }
-    // New users (or role not chosen) stay here
-    return <>{children}</>;
   }
 
-  // create-business only after choosing owner
   if (location.pathname === "/create-business") {
     if (!userType) {
       return <Navigate to="/role-authentication" replace />;
     }
     if (userType === "customer") {
-      return <Navigate to="/random-code-input" replace />;
+      return <Navigate to="/join-salon" replace />;
     }
   }
 
@@ -314,6 +342,10 @@ const AppRoutes: React.FC = () => {
             <Route path="/update-slots/:id" element={<UpdateSlots />} />
             <Route path="/working-time" element={<WorkingTime />} />
             <Route path="/add-working-time" element={<AddWorkingTime />} />
+
+            <Route path="customers-list" element={<CustomersList />} />
+            <Route path="bank-cards" element={<BankCards />} />
+            <Route path="manual-payments" element={<ManualPayments />} />
 
             <Route
               path="/sliders"
