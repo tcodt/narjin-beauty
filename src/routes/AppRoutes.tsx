@@ -57,6 +57,10 @@ import ManageAppointments from "../pages/ManageAppointments/ManageAppointments";
 import CustomersList from "../pages/CustomersList/CustomersList";
 import BankCards from "../pages/BankCards/BankCards";
 import ManualPayments from "../pages/ManualPayments/ManualPayments";
+import SubmitManualPayment from "../pages/SubmitManualPayment/SubmitManualPayment";
+import BookingQr from "../pages/BookingQr/BookingQr";
+import BusinessLogo from "../pages/BusinessLogo/BusinessLogo";
+import OwnerAppointment from "../pages/OwnerAppointment/OwnerAppointment";
 
 /* -------------------------------------------------------------------------- */
 /* Network wrapper                                                            */
@@ -323,7 +327,14 @@ const AppRoutes: React.FC = () => {
               }
             />
 
-            <Route path="/view-appointment/:id" element={<ViewAppointment />} />
+            <Route
+              path="/view-appointment/:id"
+              element={
+                <RoleRoute allow="customer">
+                  <ViewAppointment />
+                </RoleRoute>
+              }
+            />
             <Route path="/wallet" element={<Wallet />} />
 
             <Route
@@ -346,6 +357,42 @@ const AppRoutes: React.FC = () => {
             <Route path="customers-list" element={<CustomersList />} />
             <Route path="bank-cards" element={<BankCards />} />
             <Route path="manual-payments" element={<ManualPayments />} />
+
+            <Route
+              path="/submit-manual-payment"
+              element={
+                <RoleRoute allow="customer">
+                  <SubmitManualPayment />
+                </RoleRoute>
+              }
+            />
+
+            <Route
+              path="/booking-qr"
+              element={
+                <RoleRoute allow="owner">
+                  <BookingQr />
+                </RoleRoute>
+              }
+            />
+
+            <Route
+              path="/business-logo"
+              element={
+                <RoleRoute allow="owner">
+                  <BusinessLogo />
+                </RoleRoute>
+              }
+            />
+
+            <Route
+              path="/owner-appointment/:id"
+              element={
+                <RoleRoute allow="owner">
+                  <OwnerAppointment />
+                </RoleRoute>
+              }
+            />
 
             <Route
               path="/sliders"

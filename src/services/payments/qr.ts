@@ -5,7 +5,8 @@ export const getBookingQr = async (
   randomCode: string,
   baseUrl?: string,
 ): Promise<QrResponse> => {
-  const { data } = await api.get(`/payments/qr/${randomCode}/`, {
+  const code = randomCode.trim();
+  const { data } = await api.get(`/payments/qr/${encodeURIComponent(code)}/`, {
     params: baseUrl ? { base_url: baseUrl } : undefined,
   });
   return data;

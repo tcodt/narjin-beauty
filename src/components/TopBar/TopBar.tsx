@@ -17,6 +17,11 @@ import { useDeleteNotification } from "../../hooks/notifications/useDeleteNotifi
 import { AppNotification } from "../../types/notifications";
 import Dots from "../Dots/Dots";
 import { themeGradientBar, themeText } from "../../utils/themeClasses";
+import { useUserType } from "../../context/UserTypeContext";
+
+/* -------------------------------------------------------------------------- */
+/*                                   Helpers                                  */
+/* -------------------------------------------------------------------------- */
 
 function typeTone(type: string): "info" | "success" | "warning" | "danger" {
   if (type.includes("confirm") || type === "appointment_confirmed")
@@ -54,6 +59,147 @@ function formatRelative(iso: string): string {
   }
 }
 
+/**
+ * Static Tailwind classes per tone. Tailwind can't build `border-s-${x}` at
+ * runtime, so we enumerate the possibilities.
+ */
+const TONE_BORDER: Record<"info" | "success" | "warning" | "danger", string> = {
+  success: "border-s-emerald-500",
+  warning: "border-s-amber-500",
+  danger: "border-s-rose-500",
+  info: "border-s-gray-400 dark:border-s-gray-500",
+};
+
+/**
+ * Theme-colored border for the "info" tone — static class strings per theme.
+ * Extend if you add more themes.
+ */
+const INFO_BORDER_BY_THEME: Record<string, string> = {
+  "primary-green": "border-s-primary-green-500 dark:border-s-primary-green-400",
+  orange: "border-s-orange-500 dark:border-s-orange-400",
+  blue: "border-s-blue-500 dark:border-s-blue-400",
+  red: "border-s-red-500 dark:border-s-red-400",
+  green: "border-s-green-500 dark:border-s-green-400",
+  purple: "border-s-purple-500 dark:border-s-purple-400",
+  yellow: "border-s-yellow-500 dark:border-s-yellow-400",
+};
+
+/* -------------------------------------------------------------------------- */
+/*                             Notification item                              */
+/* -------------------------------------------------------------------------- */
+
+interface NotificationItemProps {
+  notif: AppNotification;
+  expanded: boolean;
+  onToggle: (notif: AppNotification) => void;
+  onDelete: (id: number) => void;
+  deletePending: boolean;
+  themeColor: keyof typeof INFO_BORDER_BY_THEME;
+}
+
+const NotificationItem: React.FC<NotificationItemProps> = ({
+  notif,
+  expanded,
+  onToggle,
+  onDelete,
+  deletePending,
+  themeColor,
+}) => {
+  const tone = typeTone(notif.notification_type);
+
+  // Info tone uses the current theme color; others have fixed semantic colors.
+  const toneBorder =
+    tone === "info"
+      ? (INFO_BORDER_BY_THEME[themeColor] ?? TONE_BORDER.info)
+      : TONE_BORDER[tone];
+
+  return (
+    <div
+      className={`group relative flex items-start gap-1 rounded-2xl border border-transparent bg-gray-50 text-right transition-colors dark:bg-gray-700/60 border-s-4 ${toneBorder} ${
+        notif.is_read ? "opacity-70" : ""
+      }`}
+    >
+      {/*
+       * Clickable content area — a real <button>, no nesting.
+       * The delete button below is a sibling, not a child.
+       */}
+      <button
+        type="button"
+        onClick={() => onToggle(notif)}
+        aria-label={notif.title}
+        className="min-w-0 flex-1 rounded-2xl p-3 text-right outline-none transition focus:bg-gray-100 dark:focus:bg-gray-700"
+      >
+        <div className="flex items-start gap-2">
+          {/* Unread dot */}
+          {!notif.is_read && (
+            <span
+              aria-hidden
+              className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-rose-500"
+            />
+          )}
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h4 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">
+                {notif.title}
+              </h4>
+            </div>
+            <p className="mt-0.5 text-[10px] text-gray-400">
+              {formatRelative(notif.created_at)}
+            </p>
+          </div>
+        </div>
+
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                {notif.message}
+              </p>
+              {notif.appointment ? (
+                <span
+                  className={`mt-2 block text-xs font-semibold ${themeText[themeColor as keyof typeof themeText]}`}
+                >
+                  مشاهده نوبت #{notif.appointment}
+                </span>
+              ) : null}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {!expanded && notif.message ? (
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+            {notif.message}
+          </p>
+        ) : null}
+      </button>
+
+      {/*
+       * Delete button — sibling to the content button above.
+       * Hover-reveal on desktop, always visible on touch devices.
+       */}
+      <button
+        type="button"
+        aria-label="حذف اعلان"
+        disabled={deletePending}
+        onClick={() => onDelete(notif.id)}
+        className="m-2 shrink-0 rounded-lg px-2 py-1 text-[10px] font-medium text-rose-500 outline-none transition hover:bg-rose-50 focus:bg-rose-50 disabled:opacity-50 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 dark:hover:bg-rose-950/30 dark:focus:bg-rose-950/30"
+      >
+        حذف
+      </button>
+    </div>
+  );
+};
+
+/* -------------------------------------------------------------------------- */
+/*                                   TopBar                                   */
+/* -------------------------------------------------------------------------- */
+
 const TopBar: React.FC = () => {
   const [isSettingOpen, setIsSettingOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -61,6 +207,7 @@ const TopBar: React.FC = () => {
   const { themeColor } = useThemeColor();
   const logoSrc = logoMap[themeColor] || "/images/logo-main.jpg";
   const navigate = useNavigate();
+  const { userType } = useUserType();
 
   const { data: notifications = [], isLoading: notifsLoading } =
     useGetNotifications();
@@ -94,8 +241,15 @@ const TopBar: React.FC = () => {
       }
     }
 
-    if (n.appointment) {
-      setIsNotifOpen(false);
+    if (!n.appointment) return;
+
+    setIsNotifOpen(false);
+
+    const isOwner = userType === "owner";
+
+    if (isOwner) {
+      navigate(`/owner-appointment/${n.appointment}`);
+    } else {
       navigate(`/view-appointment/${n.appointment}`);
     }
   };
@@ -109,8 +263,7 @@ const TopBar: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: number, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDelete = async (id: number) => {
     try {
       await removeNotif.mutateAsync(id);
       toast.success("اعلان حذف شد");
@@ -209,7 +362,7 @@ const TopBar: React.FC = () => {
               type="button"
               onClick={handleMarkAll}
               disabled={markAllRead.isPending}
-              className={`text-xs font-semibold ${themeText[themeColor]} disabled:opacity-50`}
+              className={`text-xs font-semibold ${themeText[themeColor as keyof typeof themeText]} disabled:opacity-50`}
             >
               {markAllRead.isPending ? "…" : "خواندن همه"}
             </button>
@@ -229,82 +382,17 @@ const TopBar: React.FC = () => {
             </p>
           )}
 
-          {sorted.map((notif) => {
-            const tone = typeTone(notif.notification_type);
-            const expanded = expandedId === notif.id;
-            return (
-              <div
-                key={notif.id}
-                className={`rounded-2xl border border-transparent bg-gray-50 text-right transition dark:bg-gray-700/60 border-s-4 ${
-                  tone === "success"
-                    ? "border-s-emerald-500"
-                    : tone === "warning"
-                      ? "border-s-amber-500"
-                      : tone === "danger"
-                        ? "border-s-rose-500"
-                        : `border-s-${themeColor}-500`
-                } ${notif.is_read ? "opacity-70" : ""}`}
-              >
-                <button
-                  type="button"
-                  className="w-full p-3 text-right"
-                  onClick={() => handleOpenNotif(notif)}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        {!notif.is_read && (
-                          <span className="h-2 w-2 shrink-0 rounded-full bg-rose-500" />
-                        )}
-                        <h4 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">
-                          {notif.title}
-                        </h4>
-                      </div>
-                      <p className="mt-0.5 text-[10px] text-gray-400">
-                        {formatRelative(notif.created_at)}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      aria-label="حذف اعلان"
-                      onClick={(e) => handleDelete(notif.id, e)}
-                      className="shrink-0 rounded-lg px-2 py-1 text-[10px] text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                    >
-                      حذف
-                    </button>
-                  </div>
-
-                  <AnimatePresence initial={false}>
-                    {expanded && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden"
-                      >
-                        <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
-                          {notif.message}
-                        </p>
-                        {notif.appointment ? (
-                          <span
-                            className={`mt-2 block text-xs font-semibold ${themeText[themeColor]}`}
-                          >
-                            مشاهده نوبت #{notif.appointment}
-                          </span>
-                        ) : null}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {!expanded && notif.message ? (
-                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
-                      {notif.message}
-                    </p>
-                  ) : null}
-                </button>
-              </div>
-            );
-          })}
+          {sorted.map((notif) => (
+            <NotificationItem
+              key={notif.id}
+              notif={notif}
+              expanded={expandedId === notif.id}
+              onToggle={handleOpenNotif}
+              onDelete={handleDelete}
+              deletePending={removeNotif.isPending}
+              themeColor={themeColor}
+            />
+          ))}
         </div>
       </CustomModal>
     </motion.header>

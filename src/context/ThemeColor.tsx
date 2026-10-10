@@ -2,8 +2,8 @@ import {
   createContext,
   useContext,
   useState,
-  ReactNode,
   useEffect,
+  type ReactNode,
 } from "react";
 
 export type ThemeColorName =
@@ -56,7 +56,7 @@ export const ThemeColorProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-export const useThemeColor = () => {
+export const useThemeColor = (): ThemeColorContextType => {
   const context = useContext(ThemeColorContext);
   if (!context) {
     throw new Error("useThemeColor must be used within a ThemeColorProvider");

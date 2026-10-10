@@ -19,12 +19,31 @@ export interface AppointmentDataType {
   get_status?: string;
 }
 
-export enum AppointmentStatus {
-  Pending = "pending",
-  Confirmed = "confirmed",
-  Canceled = "canceled",
-  Completed = "completed",
+export type AppointmentStatus = "pending" | "confirmed" | "canceled";
+
+export const AppointmentStatus = {
+  Pending: "pending",
+  Confirmed: "confirmed",
+  Canceled: "canceled",
+} as const;
+
+/** جزئیات نوبت برای صاحب سالن */
+export interface AppointmentBusiness {
+  id: number;
+  status: AppointmentStatus;
+  customer_name: string;
+  customer_phone: string;
+  service_name: string;
+  employee_name: string;
+  date: string; // YYYY-MM-DD
+  start_time: string;
+  end_time: string;
+  reminder_sent?: boolean;
 }
+
+export type UpdateAppointmentBusinessPayload = {
+  status: AppointmentStatus;
+};
 
 export interface Appointment {
   id: number;

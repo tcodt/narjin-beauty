@@ -38,3 +38,34 @@ export interface BroadcastNotificationPayload {
   business_id?: number | null;
   user_id?: number | null;
 }
+
+/** برای مسیریابی از روی نوع نوتیف */
+export function isOwnerFacingNotification(type: string): boolean {
+  return (
+    type === "new_appointment" ||
+    type === "appointment_canceled_by_customer" ||
+    type === "new_package_review" ||
+    type === "subscription_trial_ending" ||
+    type === "subscription_expired"
+  );
+}
+
+export function notificationTone(
+  type: string,
+): "info" | "success" | "warning" | "danger" {
+  if (type.includes("confirm") || type === "appointment_confirmed")
+    return "success";
+  if (
+    type.includes("cancel") ||
+    type.includes("expired") ||
+    type.includes("trial")
+  )
+    return "danger";
+  if (
+    type === "new_appointment" ||
+    type.includes("created") ||
+    type.includes("reminder")
+  )
+    return "warning";
+  return "info";
+}

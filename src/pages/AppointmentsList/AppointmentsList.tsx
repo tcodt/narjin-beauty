@@ -26,7 +26,6 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "همه" },
   { key: AppointmentStatus.Pending, label: "در انتظار" },
   { key: AppointmentStatus.Confirmed, label: "تأیید شده" },
-  { key: AppointmentStatus.Completed, label: "انجام شده" },
   { key: AppointmentStatus.Canceled, label: "لغو شده" },
 ];
 
@@ -92,7 +91,7 @@ const AppointmentsList: React.FC = () => {
       </div>
 
       {/* Status filters */}
-      <div className="flex flex-wrap gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex flex-wrap gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden">
         {FILTERS.map((f) => {
           const active = filter === f.key;
           return (

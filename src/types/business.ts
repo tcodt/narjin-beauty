@@ -27,6 +27,7 @@ export interface BusinessResponse {
   telephone_number: string;
   phone_number: string;
   is_active: boolean;
+  logo?: string | null;
 }
 
 export interface BusinessRequest {

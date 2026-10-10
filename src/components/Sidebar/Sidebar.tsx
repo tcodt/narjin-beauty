@@ -1,5 +1,11 @@
 import React, { useEffect } from "react";
-import { FaUsers, FaWallet } from "react-icons/fa";
+import {
+  FaFileInvoiceDollar,
+  FaQrcode,
+  FaStore,
+  FaUsers,
+  FaWallet,
+} from "react-icons/fa";
 import { GiBeard } from "react-icons/gi";
 import {
   MdHome,
@@ -164,6 +170,13 @@ const Sidebar: React.FC = () => {
       ownerOnly: true,
     },
     {
+      icon: <FaFileInvoiceDollar size={20} />,
+      label: "پرداخت کارت‌به‌کارت",
+      path: "/submit-manual-payment",
+      requiredPermission: null,
+      customerOnly: true,
+    },
+    {
       icon: <FiUsers className="h-5 w-5" />,
       label: "مشتریان",
       path: "/customers-list",
@@ -182,6 +195,20 @@ const Sidebar: React.FC = () => {
       label: "فیش‌های پرداخت",
       path: "/manual-payments",
       requiredPermission: "payments_record", //! Need to check if this is correct permission name
+      ownerOnly: true,
+    },
+    {
+      icon: <FaQrcode size={20} />,
+      label: "کد QR رزرو",
+      path: "/booking-qr",
+      requiredPermission: null,
+      ownerOnly: true,
+    },
+    {
+      icon: <FaStore size={20} />,
+      label: "لوگوی سالن",
+      path: "/business-logo",
+      requiredPermission: null,
       ownerOnly: true,
     },
     {
@@ -257,13 +284,13 @@ const Sidebar: React.FC = () => {
 
       <aside
         id="sidebar-panel"
-        className={`fixed top-0 right-0 z-[2000] flex h-full w-[min(18rem,85vw)] flex-col border-e border-gray-200/80 bg-white/95 shadow-2xl backdrop-blur-xl transition-transform duration-300 ease-out dark:border-gray-700 dark:bg-gray-900/95 ${
+        className={`fixed top-0 right-0 z-2000 flex h-full w-[min(18rem,85vw)] flex-col border-e border-gray-200/80 bg-white/95 shadow-2xl backdrop-blur-xl transition-transform duration-300 ease-out dark:border-gray-700 dark:bg-gray-900/95 ${
           isSidebarOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
         {/* Header */}
         <div
-          className={`flex items-center gap-3 bg-gradient-to-l ${themeGradientBar[themeColor]} to-${themeColor}-500 px-4 py-5`}
+          className={`flex items-center gap-3 bg-linear-to-l ${themeGradientBar[themeColor]} to-${themeColor}-500 px-4 py-5`}
         >
           <div className="h-12 w-12 overflow-hidden rounded-full border-2 border-white/40">
             <img src={logoSrc} alt="" className="h-full w-full object-cover" />

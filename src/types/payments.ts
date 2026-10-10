@@ -1,12 +1,24 @@
+export interface CardBusinessInfo {
+  id: number;
+  name: string;
+  random_code: string;
+  is_active?: boolean;
+}
+
 // کارت‌به‌کارت
 export interface NumbersCard {
   id: number;
-  business: number | null;
+  business: string | CardBusinessInfo | null;
   num_code: string;
   name_bank: string;
   card_holder_name: string;
   description?: string;
   status: boolean;
+}
+
+export interface SalonCardsResponse {
+  business: CardBusinessInfo | null;
+  cards: NumbersCard[];
 }
 
 export type CreateNumbersCardPayload = {
