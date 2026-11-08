@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import {
+  FaCrown,
   FaFileInvoiceDollar,
   FaQrcode,
   FaStore,
@@ -201,6 +202,13 @@ const Sidebar: React.FC = () => {
       icon: <FaQrcode size={20} />,
       label: "کد QR رزرو",
       path: "/booking-qr",
+      requiredPermission: null,
+      ownerOnly: true,
+    },
+    {
+      icon: <FaCrown size={20} />,
+      label: "پلن ها و اشتراک",
+      path: "/plans",
       requiredPermission: null,
       ownerOnly: true,
     },

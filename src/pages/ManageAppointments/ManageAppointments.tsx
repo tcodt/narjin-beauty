@@ -23,6 +23,8 @@ import EmptyState from "../../components/EmptyState/EmptyState";
 import { IoCalendarOutline } from "react-icons/io5";
 import SearchBar from "../../components/SearchBar/SearchBar";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import { useHasFeature } from "../../hooks/subscription/useHasFeature";
+import FeatureLocked from "../../components/FeatureLocked/FeatureLocked";
 
 type FilterKey = "today" | "pending" | "confirmed" | "canceled" | "all";
 
@@ -69,13 +71,13 @@ const statusMeta = (status?: string) => {
 };
 
 function parseApiError(error: unknown, fallback: string): string {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ax = error as { response?: { data?: any } };
+  const ax = error as { response?: { data?: unknown } };
   const data = ax.response?.data;
   if (typeof data === "string" && data.trim()) return data;
   if (data && typeof data === "object") {
-    if (typeof data.detail === "string") return data.detail;
-    const first = Object.values(data).find((v) => Array.isArray(v) && v[0]) as
+    const obj = data as Record<string, unknown>;
+    if (typeof obj.detail === "string") return obj.detail;
+    const first = Object.values(obj).find((v) => Array.isArray(v) && v[0]) as
       | string[]
       | undefined;
     if (first?.[0]) return String(first[0]);
@@ -89,6 +91,10 @@ const ManageAppointments: React.FC = () => {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebouncedValue(searchQuery, 250);
+
+  // کلید را با feature.key واقعی API عوض کن اگر فرق داشت
+  const { hasFeature, isLoading: featureLoading } =
+    useHasFeature("appointments");
 
   const {
     data: appointments = [],
@@ -173,11 +179,20 @@ const ManageAppointments: React.FC = () => {
     });
   }, [sorted, debouncedSearch]);
 
-  if (isLoading) {
+  if (featureLoading || isLoading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
         <Dots />
       </div>
+    );
+  }
+
+  if (!hasFeature) {
+    return (
+      <FeatureLocked
+        title="مدیریت نوبت‌ها در پلن شما فعال نیست"
+        description="برای مشاهده و تأیید نوبت‌های مشتریان، پلن مناسب را از صفحه پلن‌ها تهیه کنید."
+      />
     );
   }
 
@@ -272,7 +287,7 @@ const ManageAppointments: React.FC = () => {
                         {item.customer_name || "مشتری"}
                       </h3>
                       <span
-                        className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${meta.chip}`}
+                        className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${meta.chip}`}
                       >
                         {meta.label}
                       </span>
@@ -282,7 +297,7 @@ const ManageAppointments: React.FC = () => {
                       <span dir="ltr">{item.customer_phone || "—"}</span>
                     </p>
                   </div>
-                  <span className="text-[11px] text-gray-400">#{item.id}</span>
+                  <span className="text-xs text-gray-400">#{item.id}</span>
                 </div>
 
                 <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">

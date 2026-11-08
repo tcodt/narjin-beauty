@@ -1,4 +1,4 @@
-import React, { ButtonHTMLAttributes, ReactNode } from "react";
+import React, { ButtonHTMLAttributes, ReactNode, RefObject } from "react";
 import { useThemeColor } from "../../context/ThemeColor";
 import { themeBgSolid } from "../../utils/themeClasses";
 
@@ -13,12 +13,14 @@ type ButtonVariant =
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
   variant?: ButtonVariant;
+  ref?: RefObject<HTMLButtonElement | null>;
 }
 
 const Button: React.FC<ButtonProps> = ({
   children,
   type = "button",
   variant = "primary",
+  ref,
   ...rest
 }) => {
   const { themeColor } = useThemeColor();
@@ -43,7 +45,7 @@ const Button: React.FC<ButtonProps> = ({
   const buttonClasses = `${baseClasses} ${variantClasses[variant]}`;
 
   return (
-    <button type={type} className={buttonClasses} {...rest}>
+    <button type={type} className={buttonClasses} ref={ref} {...rest}>
       {children}
     </button>
   );

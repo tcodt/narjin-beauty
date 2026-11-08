@@ -32,6 +32,8 @@ import { themeText } from "../../utils/themeClasses";
 import EmptyState from "../../components/EmptyState/EmptyState";
 import SearchBar from "../../components/SearchBar/SearchBar";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import { useHasFeature } from "../../hooks/subscription/useHasFeature";
+import FeatureLocked from "../../components/FeatureLocked/FeatureLocked";
 
 type StatusFilter = "all" | "active" | "inactive";
 
@@ -48,6 +50,22 @@ const ManageEmployees: React.FC = () => {
   const { user } = useAuth();
   const currentUserId = user?.id;
 
+  // ---------- Feature Gate ----------
+  const {
+    hasFeature,
+    isLoading: featureLoading,
+    value: featureValue,
+  } = useHasFeature("employees");
+
+  // اگر value عدد باشد → حداکثر تعداد کارمند
+  const maxEmployees =
+    featureValue === "نامحدود" || !featureValue
+      ? Infinity
+      : Number(featureValue) || Infinity;
+
+  const canAddMore = employees.length < maxEmployees;
+
+  // ---------- Local State ----------
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const debouncedSearch = useDebouncedValue(searchQuery, 250);
@@ -56,14 +74,14 @@ const ManageEmployees: React.FC = () => {
   const [isUpdateOpen, setIsUpdateOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
 
-  // Create — matches EmployeeCreate
+  // Create form
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [skill, setSkill] = useState("");
 
-  // Edit — matches EmployeeUpdate (first_name, last_name, skill only)
+  // Edit form
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editFirstName, setEditFirstName] = useState("");
   const [editLastName, setEditLastName] = useState("");
@@ -85,6 +103,12 @@ const ManageEmployees: React.FC = () => {
   };
 
   const openAdd = () => {
+    if (!canAddMore) {
+      toast.error(
+        `حداکثر تعداد آرایشگر در پلن فعلی شما ${maxEmployees} نفر است. برای افزودن بیشتر پلن را ارتقا دهید.`,
+      );
+      return;
+    }
     resetAddForm();
     setIsAddOpen(true);
   };
@@ -95,7 +119,6 @@ const ManageEmployees: React.FC = () => {
     let first = getEmployeeFirstName(emp.user);
     let last = getEmployeeLastName(emp.user);
 
-    // اگر user رشته باشد یا last خالی بماند، از display name جدا کن
     if (!last || first === "بدون نام") {
       const full = getEmployeeDisplayName(emp.user).trim();
       if (full && full !== "بدون نام") {
@@ -110,7 +133,6 @@ const ManageEmployees: React.FC = () => {
       }
     }
 
-    // جلوگیری از پر شدن "بدون نام" داخل اینپوت
     if (first === "بدون نام") first = "";
 
     setEditFirstName(first);
@@ -131,7 +153,6 @@ const ManageEmployees: React.FC = () => {
         (v) => Array.isArray(v) && v[0],
       ) as string[] | undefined;
       if (first?.[0]) return String(first[0]);
-      // field errors: { phone_number: ["..."] }
       const msg = Object.entries(data)
         .map(([k, v]) => {
           if (Array.isArray(v)) return `${k}: ${v.join(", ")}`;
@@ -147,6 +168,10 @@ const ManageEmployees: React.FC = () => {
 
   /** POST /business/employees/create/ */
   const handleAddEmployee = () => {
+    if (!canAddMore) {
+      toast.error("به سقف تعداد آرایشگر پلن خود رسیده‌اید.");
+      return;
+    }
     if (!firstName.trim() || !lastName.trim()) {
       toast.error("نام و نام خانوادگی الزامی است");
       return;
@@ -187,7 +212,7 @@ const ManageEmployees: React.FC = () => {
     );
   };
 
-  /** PUT /business/employees/update/{id}/ — only name + skill */
+  /** PUT /business/employees/update/{id}/ */
   const handleUpdateEmployee = () => {
     if (!editingId) return;
     if (!editFirstName.trim() || !editLastName.trim()) {
@@ -251,7 +276,6 @@ const ManageEmployees: React.FC = () => {
   const filteredEmployees = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase();
     return employees.filter((emp) => {
-      // is_active فقط از user object (اگر string باشد helper → true)
       const active = getEmployeeIsActive(emp.user);
       if (statusFilter === "active" && !active) return false;
       if (statusFilter === "inactive" && active) return false;
@@ -265,7 +289,18 @@ const ManageEmployees: React.FC = () => {
     });
   }, [employees, debouncedSearch, statusFilter]);
 
-  if (isPending) return <Loading />;
+  // ---------- Early returns ----------
+  if (isPending || featureLoading) return <Loading />;
+
+  // Feature not purchased
+  if (!hasFeature) {
+    return (
+      <FeatureLocked
+        title="مدیریت آرایشگران در پلن شما فعال نیست"
+        description="با ارتقای پلن می‌توانید آرایشگر اضافه کنید."
+      />
+    );
+  }
 
   if (isError) {
     console.error(error);
@@ -316,7 +351,7 @@ const ManageEmployees: React.FC = () => {
         </div>
       </CustomModal>
 
-      {/* ویرایش — فقط first_name, last_name, skill */}
+      {/* ویرایش */}
       <CustomModal
         isOpen={isUpdateOpen}
         onClose={() => {
@@ -333,7 +368,6 @@ const ManageEmployees: React.FC = () => {
             onChange={(e) => setEditFirstName(e.target.value)}
             autoComplete="given-name"
           />
-
           <input
             className="primary-input"
             placeholder="نام خانوادگی *"
@@ -341,14 +375,12 @@ const ManageEmployees: React.FC = () => {
             onChange={(e) => setEditLastName(e.target.value)}
             autoComplete="family-name"
           />
-
           <textarea
-            className="primary-input min-h-[80px]"
+            className="primary-input min-h-20"
             placeholder="مهارت‌ها *"
             value={editSkill}
             onChange={(e) => setEditSkill(e.target.value)}
           />
-
           <Button
             type="button"
             variant="primary"
@@ -360,7 +392,7 @@ const ManageEmployees: React.FC = () => {
         </div>
       </CustomModal>
 
-      {/* افزودن — EmployeeCreate */}
+      {/* افزودن */}
       <CustomModal
         isOpen={isAddOpen}
         onClose={() => {
@@ -371,8 +403,12 @@ const ManageEmployees: React.FC = () => {
       >
         <div className="flex flex-col gap-3">
           <p className="text-xs leading-5 text-gray-500 dark:text-gray-400">
-            حساب کاربری جدید برای آرایشگر ساخته می‌شود. نیازی به انتخاب از لیست
-            کاربران نیست.
+            حساب کاربری جدید برای آرایشگر ساخته می‌شود.
+            {maxEmployees !== Infinity && (
+              <span className="mt-1 block font-medium text-amber-600">
+                ظرفیت پلن شما: {employees.length} از {maxEmployees} نفر
+              </span>
+            )}
           </p>
           <input
             className="primary-input"
@@ -409,7 +445,7 @@ const ManageEmployees: React.FC = () => {
             autoComplete="new-password"
           />
           <textarea
-            className="primary-input min-h-[80px]"
+            className="primary-input min-h-20"
             placeholder="مهارت‌ها *"
             value={skill}
             onChange={(e) => setSkill(e.target.value)}
@@ -418,7 +454,7 @@ const ManageEmployees: React.FC = () => {
             type="button"
             variant="primary"
             onClick={handleAddEmployee}
-            disabled={addEmployeeMutation.isPending}
+            disabled={addEmployeeMutation.isPending || !canAddMore}
           >
             {addEmployeeMutation.isPending ? "در حال ثبت..." : "ثبت آرایشگر"}
           </Button>
@@ -427,7 +463,14 @@ const ManageEmployees: React.FC = () => {
 
       {/* Header */}
       <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-        <PageTitle title="آرایشگران" />
+        <div>
+          <PageTitle title="آرایشگران" />
+          {maxEmployees !== Infinity && (
+            <p className="mt-1 text-xs text-gray-500">
+              {employees.length} از {maxEmployees} نفر (بر اساس پلن شما)
+            </p>
+          )}
+        </div>
         <Dropdown
           isAddOpen={isAddOpen}
           setIsAddOpen={(open) => {
@@ -441,7 +484,7 @@ const ManageEmployees: React.FC = () => {
         />
       </div>
 
-      {/* Search + status filter */}
+      {/* Search + Filter */}
       <div className="space-y-3">
         <SearchBar
           value={searchQuery}
@@ -475,6 +518,7 @@ const ManageEmployees: React.FC = () => {
         </div>
       </div>
 
+      {/* List */}
       {!employees.length ? (
         <EmptyState
           icon={<FaUser />}
@@ -524,7 +568,7 @@ const ManageEmployees: React.FC = () => {
                 className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
               >
                 <div
-                  className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-l from-${themeColor}-400 to-${themeColor}-600`}
+                  className={`absolute inset-x-0 top-0 h-1 bg-linear-to-l from-${themeColor}-400 to-${themeColor}-600`}
                 />
 
                 <div className="flex items-start gap-3">
@@ -558,7 +602,7 @@ const ManageEmployees: React.FC = () => {
                         </p>
                       </div>
                       <span
-                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                        className={`shrink-0 rounded-full px-2.5 py-0.5 textarea-xs font-semibold ${
                           active
                             ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
                             : "bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300"
@@ -570,12 +614,12 @@ const ManageEmployees: React.FC = () => {
 
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <span
-                        className={`rounded-full bg-${themeColor}-50 px-2.5 py-0.5 text-[11px] font-semibold text-${themeColor}-700`}
+                        className={`rounded-full bg-${themeColor}-50 px-2.5 py-0.5 textarea-xs font-semibold text-${themeColor}-700`}
                       >
                         {roleLabel}
                       </span>
                       <span
-                        className="rounded-full bg-gray-50 px-2.5 py-0.5 text-[11px] text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                        className="rounded-full bg-gray-50 px-2.5 py-0.5 textarea-xs text-gray-600 dark:bg-gray-700 dark:text-gray-300"
                         dir="ltr"
                       >
                         {phoneLabel}

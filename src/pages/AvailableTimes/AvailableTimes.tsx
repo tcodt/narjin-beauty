@@ -31,6 +31,10 @@ import {
 } from "../../utils/date";
 import { LuCalendarDays, LuClock } from "react-icons/lu";
 import gregorian from "react-date-object/calendars/gregorian";
+import { useHasFeature } from "../../hooks/subscription/useHasFeature";
+import FeatureLocked from "../../components/FeatureLocked/FeatureLocked";
+import Loading from "../../components/Loading/Loading";
+import { themeText } from "../../utils/themeClasses";
 
 const parentVariants = {
   hidden: { opacity: 0 },
@@ -56,10 +60,13 @@ const AvailableTimes: React.FC = () => {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isUpdateOpen, setIsUpdateOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [isAvailable, setIsAvailable] = useState(true); // default FREE
+  const [isAvailable, setIsAvailable] = useState(true);
   const [filteredSlots, setFilteredSlots] = useState<
     "all" | "available" | "unavailable"
   >("all");
+
+  // کلید را با feature.key واقعی API عوض کن اگر فرق داشت
+  const { hasFeature, isLoading: featureLoading } = useHasFeature("time_slots");
 
   const { data: slots, isPending, isError } = useGetSlots();
   const addSlotMutation = useAddSlots();
@@ -105,7 +112,6 @@ const AvailableTimes: React.FC = () => {
       return;
     }
 
-    // CRITICAL: Gregorian for API (Swagger format: date)
     const dateStr = toGregorianISO(dateValue);
     const hour = startTimeValue.hour ?? 0;
     const minute = startTimeValue.minute ?? 0;
@@ -144,7 +150,6 @@ const AvailableTimes: React.FC = () => {
     setSelectedService(slot.service || 0);
     setIsAvailable(!!slot.is_available);
 
-    // date from API (Gregorian) → Persian DateObject for picker
     try {
       const [y, m, d] = slot.date.split("-").map(Number);
       if (y && m && d) {
@@ -160,7 +165,6 @@ const AvailableTimes: React.FC = () => {
       setDateValue(todayPersian());
     }
 
-    // time
     try {
       const [hh, mm] = String(slot.start_time).split(":").map(Number);
       const t = new DateObject({ calendar: persian, locale: persian_fa });
@@ -248,9 +252,19 @@ const AvailableTimes: React.FC = () => {
   const persianPreview = dateValue ? dateValue.format("YYYY/MM/DD") : "—";
   const gregorianPreview = dateValue ? toGregorianISO(dateValue) : "—";
 
+  if (featureLoading) return <Loading />;
+
+  if (!hasFeature) {
+    return (
+      <FeatureLocked
+        title="زمان‌های در دسترس در پلن شما فعال نیست"
+        description="برای تعریف و مدیریت زمان‌های رزرو، پلن مناسب را از صفحه پلن‌ها تهیه کنید."
+      />
+    );
+  }
+
   return (
     <section className="space-y-6 pb-10">
-      {/* ========== ADD MODAL ========== */}
       <CustomModal
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
@@ -279,7 +293,7 @@ const AvailableTimes: React.FC = () => {
               textColor="gray-700"
               selectedRed={false}
             />
-            <p className="mt-1.5 text-[11px] text-gray-400">
+            <p className="mt-1.5 textarea-xs text-gray-400">
               شمسی: <b>{persianPreview}</b>
               {" · "}
               API:{" "}
@@ -356,7 +370,6 @@ const AvailableTimes: React.FC = () => {
         </form>
       </CustomModal>
 
-      {/* ========== UPDATE MODAL ========== */}
       <CustomModal
         isOpen={isUpdateOpen}
         onClose={() => {
@@ -365,7 +378,6 @@ const AvailableTimes: React.FC = () => {
         }}
         title="بروزرسانی زمان"
       >
-        {/* List: pick a slot to edit */}
         {!selectedSlot && (
           <div className="mb-4 space-y-2">
             <p className="text-xs text-gray-500">
@@ -377,12 +389,12 @@ const AvailableTimes: React.FC = () => {
                   key={slot.id}
                   type="button"
                   onClick={() => openEditSlot(slot)}
-                  className={`flex w-full items-center justify-between rounded-xl border border-gray-100 bg-slate-50 p-3 text-right dark:border-gray-600 dark:bg-gray-700`}
+                  className="flex w-full items-center justify-between rounded-xl border border-gray-100 bg-slate-50 p-3 text-right dark:border-gray-600 dark:bg-gray-700"
                 >
                   <span className="text-sm font-medium text-gray-800 dark:text-white">
                     {toPersianLabel(slot.date)} — {formatTime(slot.start_time)}
                   </span>
-                  <FaPencil className={`text-${themeColor}-500`} />
+                  <FaPencil className={themeText[themeColor]} />
                 </button>
               ))
             ) : (
@@ -393,7 +405,6 @@ const AvailableTimes: React.FC = () => {
           </div>
         )}
 
-        {/* Form: only after a slot is chosen → uses handleUpdateSlot */}
         {selectedSlot && (
           <form onSubmit={handleUpdateSlot} className="space-y-4">
             <p className="text-xs text-gray-400">
@@ -419,7 +430,7 @@ const AvailableTimes: React.FC = () => {
                 textColor="gray-700"
                 selectedRed={false}
               />
-              <p className="mt-1 text-[11px] text-gray-400">
+              <p className="mt-1 textarea-xs text-gray-400">
                 API:{" "}
                 <span className="font-mono" dir="ltr">
                   {dateValue ? toGregorianISO(dateValue) : "—"}
@@ -501,7 +512,6 @@ const AvailableTimes: React.FC = () => {
         )}
       </CustomModal>
 
-      {/* ========== DELETE MODAL ========== */}
       <CustomModal
         isOpen={isDeleteOpen}
         onClose={() => setIsDeleteOpen(false)}
@@ -558,27 +568,33 @@ const AvailableTimes: React.FC = () => {
         <div className="mb-6 flex items-center gap-4">
           {(
             [
-              ["all", "همه", allSlotsCount, themeColor],
-              ["available", "آزاد", availableSlotsCount, "green"],
-              ["unavailable", "رزرو شده", unavailableSlotsCount, "red"],
+              ["all", "همه", allSlotsCount],
+              ["available", "آزاد", availableSlotsCount],
+              ["unavailable", "رزرو شده", unavailableSlotsCount],
             ] as const
-          ).map(([key, label, count, color]) => (
+          ).map(([key, label, count]) => (
             <button
               key={key}
               type="button"
               className={`relative border-b-2 p-1 text-xs font-medium ${
                 filteredSlots === key
-                  ? color === "green"
+                  ? key === "available"
                     ? "border-green-500 text-green-500"
-                    : color === "red"
+                    : key === "unavailable"
                       ? "border-red-500 text-red-500"
-                      : `border-${themeColor}-500 text-${themeColor}-500`
+                      : `${themeText[themeColor]} border-current`
                   : "border-transparent text-gray-500 dark:text-gray-200"
               }`}
               onClick={() => setFilteredSlots(key)}
             >
               <span
-                className={`absolute -top-3 -right-1 flex h-4 w-6 items-center justify-center rounded-full bg-${themeColor}-500 text-[10px] text-white`}
+                className={`absolute -top-3 -right-1 flex h-4 w-6 items-center justify-center rounded-full text-[10px] text-white ${
+                  key === "available"
+                    ? "bg-green-500"
+                    : key === "unavailable"
+                      ? "bg-red-500"
+                      : "bg-gray-500"
+                }`}
               >
                 {count}
               </span>
@@ -610,11 +626,11 @@ const AvailableTimes: React.FC = () => {
                 <p className="mt-1 text-lg font-bold text-gray-900 dark:text-gray-100">
                   {formatTime(slot.start_time)}
                 </p>
-                <p className="mt-0.5 text-[11px] text-gray-400" dir="ltr">
+                <p className="mt-0.5 textarea-xs text-gray-400" dir="ltr">
                   {slot.date}
                 </p>
                 <span
-                  className={`mt-2 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                  className={`mt-2 inline-block rounded-full px-2.5 py-0.5 textarea-xs font-semibold ${
                     slot.is_available
                       ? "bg-emerald-500 text-white"
                       : "bg-rose-500 text-white"

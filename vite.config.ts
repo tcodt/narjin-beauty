@@ -4,6 +4,11 @@ import { VitePWA } from "vite-plugin-pwa";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
+  server: {
+    host: "127.0.0.1",
+    port: 3000, // 👈 changed from 5173 to 3000
+    strictPort: true, // fail if 3000 is already in use (instead of auto-incrementing)
+  },
   plugins: [
     react(),
     tailwindcss(),

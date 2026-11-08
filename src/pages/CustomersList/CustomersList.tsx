@@ -21,29 +21,29 @@ import {
   themeRing,
   mediaUrl,
 } from "../../utils/themeClasses";
+import { useHasFeature } from "../../hooks/subscription/useHasFeature";
+import FeatureLocked from "../../components/FeatureLocked/FeatureLocked";
+import Loading from "../../components/Loading/Loading";
 
 /* -------------------------------------------------------------------------- */
-/*                                   Helpers                                  */
+/* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
 
-/** Deterministic pastel color from a string — used for avatar fallback bg. */
 const stringToHue = (s: string): number => {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
   return h;
 };
 
-/** Human-friendly Persian number. */
 const faNum = (n: number | string): string => Number(n).toLocaleString("fa-IR");
 
-/** Normalize Persian/Arabic digits so search works with any input. */
 const normalizeDigits = (s: string): string =>
   s
     .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
     .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
 
 /* -------------------------------------------------------------------------- */
-/*                              Avatar component                              */
+/* Avatar                                                                     */
 /* -------------------------------------------------------------------------- */
 
 const Avatar: React.FC<{
@@ -55,7 +55,6 @@ const Avatar: React.FC<{
   const [imgFailed, setImgFailed] = useState(false);
   const initials = `${firstName[0] ?? ""}${lastName[0] ?? ""}`.trim() || "؟";
   const hue = stringToHue(`${firstName}${lastName}` || "default");
-
   const showImage = src && !imgFailed;
 
   return (
@@ -87,7 +86,7 @@ const Avatar: React.FC<{
 };
 
 /* -------------------------------------------------------------------------- */
-/*                              Skeleton loader                               */
+/* Skeleton                                                                   */
 /* -------------------------------------------------------------------------- */
 
 const CustomerSkeleton: React.FC = () => (
@@ -112,7 +111,7 @@ const SkeletonGrid: React.FC = () => (
 );
 
 /* -------------------------------------------------------------------------- */
-/*                              Customer card                                 */
+/* Customer card                                                              */
 /* -------------------------------------------------------------------------- */
 
 interface CustomerCardProps {
@@ -134,11 +133,8 @@ const CustomerCard: React.FC<CustomerCardProps> = ({
   onClick,
 }) => {
   const { themeColor } = useThemeColor();
-
   const fullName = `${c.first_name} ${c.last_name}`.trim();
   const appointments = c.appointments_count ?? 0;
-
-  // Cap animation delay so long lists don't feel sluggish
   const delay = Math.min(index * 0.03, 0.3);
 
   return (
@@ -155,7 +151,6 @@ const CustomerCard: React.FC<CustomerCardProps> = ({
         className={`w-full rounded-2xl border border-gray-100 bg-white p-4 text-right shadow-sm outline-none transition hover:shadow-md focus:ring-2 dark:border-gray-700 dark:bg-gray-800 ${themeRing[themeColor]}`}
         aria-label={`مشتری ${fullName}`}
       >
-        {/* Top: avatar + name + phone */}
         <div className="flex items-center gap-3">
           <Avatar
             src={c.image}
@@ -176,7 +171,6 @@ const CustomerCard: React.FC<CustomerCardProps> = ({
           </div>
         </div>
 
-        {/* Bottom: appointments count + actions */}
         <div className="mt-3 flex items-center justify-between gap-2 border-t border-gray-100 pt-3 dark:border-gray-700">
           <div
             className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium ${themeBgSoft[themeColor]} ${themeText[themeColor]}`}
@@ -205,7 +199,7 @@ const CustomerCard: React.FC<CustomerCardProps> = ({
 };
 
 /* -------------------------------------------------------------------------- */
-/*                              Main component                                */
+/* Page                                                                       */
 /* -------------------------------------------------------------------------- */
 
 const CustomersList: React.FC = () => {
@@ -218,10 +212,12 @@ const CustomersList: React.FC = () => {
   } = useMyCustomers();
   const { themeColor } = useThemeColor();
 
+  // کلید را با feature.key واقعی API عوض کن اگر فرق داشت
+  const { hasFeature, isLoading: featureLoading } = useHasFeature("customers");
+
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  // Debounce search input → smoother filtering for large lists
   useEffect(() => {
     const id = setTimeout(() => setDebouncedSearch(search), 200);
     return () => clearTimeout(id);
@@ -243,7 +239,17 @@ const CustomersList: React.FC = () => {
   const total = customers.length;
   const shown = filtered.length;
 
-  /* ------------------------------- Loading ---------------------------------- */
+  if (featureLoading) return <Loading />;
+
+  if (!hasFeature) {
+    return (
+      <FeatureLocked
+        title="لیست مشتریان در پلن شما فعال نیست"
+        description="برای مشاهده و مدیریت مشتریان سالن، پلن مناسب را از صفحه پلن‌ها تهیه کنید."
+      />
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="mx-auto max-w-5xl space-y-5 p-4 pb-24">
@@ -259,7 +265,6 @@ const CustomersList: React.FC = () => {
     );
   }
 
-  /* -------------------------------- Error ----------------------------------- */
   if (isError) {
     return (
       <div className="mx-auto max-w-lg p-4">
@@ -288,10 +293,8 @@ const CustomersList: React.FC = () => {
     );
   }
 
-  /* -------------------------------- Render ---------------------------------- */
   return (
     <div className="mx-auto max-w-5xl space-y-5 pb-24">
-      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -311,7 +314,6 @@ const CustomersList: React.FC = () => {
           </p>
         </div>
 
-        {/* Search */}
         <div className="relative w-full sm:w-72">
           <FaSearch
             className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -338,7 +340,6 @@ const CustomersList: React.FC = () => {
         </div>
       </div>
 
-      {/* Body */}
       {shown === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 py-16 text-center dark:border-gray-600">
           <div
@@ -369,13 +370,7 @@ const CustomersList: React.FC = () => {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <AnimatePresence mode="popLayout">
             {filtered.map((c, i) => (
-              <CustomerCard
-                key={c.id}
-                customer={c}
-                index={i}
-                // Replace with your navigation:
-                // onClick={() => navigate(`/customers/${c.id}`)}
-              />
+              <CustomerCard key={c.id} customer={c} index={i} />
             ))}
           </AnimatePresence>
         </div>

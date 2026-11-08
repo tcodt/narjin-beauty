@@ -61,6 +61,9 @@ import SubmitManualPayment from "../pages/SubmitManualPayment/SubmitManualPaymen
 import BookingQr from "../pages/BookingQr/BookingQr";
 import BusinessLogo from "../pages/BusinessLogo/BusinessLogo";
 import OwnerAppointment from "../pages/OwnerAppointment/OwnerAppointment";
+import SubscriptionGuard from "../components/SubscriptionGuard/SubscriptionGuard";
+import Plans from "../pages/Subscription/Plans";
+import BuySubscription from "../pages/Subscription/BuySubscription";
 
 /* -------------------------------------------------------------------------- */
 /* Network wrapper                                                            */
@@ -73,13 +76,16 @@ const NetworkStatusWrapper: React.FC<{ children: React.ReactNode }> = ({
   return <>{children}</>;
 };
 
+/* -------------------------------------------------------------------------- */
+/* Post-auth redirect                                                         */
+/* -------------------------------------------------------------------------- */
+
 const PostAuthRedirect: React.FC = () => {
   const { userType, isReady, setUserType } = useUserType();
   const { user, isLoading: authLoading } = useAuth();
 
   const isOwner = !!user?.is_owner;
 
-  // همگام‌سازی userType با API (یک‌بار)
   useEffect(() => {
     if (authLoading || !isReady || !user) return;
     if (isOwner && userType !== "owner") {
@@ -106,14 +112,9 @@ const PostAuthRedirect: React.FC = () => {
 };
 
 /* -------------------------------------------------------------------------- */
-/* Onboarding-only guard (UserFlow)                                           */
+/* Onboarding-only guard                                                      */
 /* -------------------------------------------------------------------------- */
 
-/**
- * UserFlow is ONLY for first-time registration after auth.
- * Returning users who already have userType / joinedBusiness
- * cannot open role-auth / create-business / random-code-input.
- */
 const OnboardingOnly: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -143,7 +144,6 @@ const OnboardingOnly: React.FC<{ children: React.ReactNode }> = ({
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
-  // مالک واقعی ← همیشه داشبورد (نه role-selection)
   if (profileOwner) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -179,6 +179,48 @@ const OnboardingOnly: React.FC<{ children: React.ReactNode }> = ({
 };
 
 /* -------------------------------------------------------------------------- */
+/* Layout shells                                                              */
+/* -------------------------------------------------------------------------- */
+
+/** مشتری + صفحات مشترک — بدون محدودیت اشتراک */
+const AppShell: React.FC = () => (
+  <PrivateRoutes>
+    <BusinessStatusGuard>
+      <NetworkStatusWrapper>
+        <MainLayout />
+      </NetworkStatusWrapper>
+    </BusinessStatusGuard>
+  </PrivateRoutes>
+);
+
+/**
+ * مالک — مدیریت سالن
+ * SubscriptionGuard فقط برای owner اعمال می‌شود (داخل خود گارد)
+ */
+const OwnerShell: React.FC = () => (
+  <PrivateRoutes>
+    <BusinessStatusGuard>
+      <SubscriptionGuard>
+        <NetworkStatusWrapper>
+          <MainLayout />
+        </NetworkStatusWrapper>
+      </SubscriptionGuard>
+    </BusinessStatusGuard>
+  </PrivateRoutes>
+);
+
+/** پلن و خرید — همیشه برای مالک در دسترس (بدون قفل اشتراک) */
+const SubscriptionShell: React.FC = () => (
+  <PrivateRoutes>
+    <BusinessStatusGuard>
+      <NetworkStatusWrapper>
+        <MainLayout />
+      </NetworkStatusWrapper>
+    </BusinessStatusGuard>
+  </PrivateRoutes>
+);
+
+/* -------------------------------------------------------------------------- */
 /* Routes                                                                     */
 /* -------------------------------------------------------------------------- */
 
@@ -203,14 +245,7 @@ const AppRoutes: React.FC = () => {
           <Route path="/acl" element={<AclManager />} />
           <Route path="/offline" element={<OfflinePage />} />
 
-          {/* ===================== ONBOARDING (new users only) ===================== */}
-          {/*
-            UserFlow shell + OnboardingOnly:
-            - /role-authentication
-            - /create-business
-            - /random-code-input  ← registration code ONLY
-            Registered customers must use /join-salon instead.
-          */}
+          {/* ===================== ONBOARDING ===================== */}
           <Route
             element={
               <OnboardingOnly>
@@ -226,7 +261,7 @@ const AppRoutes: React.FC = () => {
             <Route path="/random-code-input" element={<RandomCodeInput />} />
           </Route>
 
-          {/* ===================== WAITING ROOM (owner pending) ===================== */}
+          {/* ===================== WAITING ROOM ===================== */}
           <Route
             path="/waiting-room"
             element={
@@ -240,19 +275,28 @@ const AppRoutes: React.FC = () => {
             }
           />
 
-          {/* ===================== AUTHENTICATED APP ===================== */}
-          <Route
-            element={
-              <PrivateRoutes>
-                <BusinessStatusGuard>
-                  <NetworkStatusWrapper>
-                    <MainLayout />
-                  </NetworkStatusWrapper>
-                </BusinessStatusGuard>
-              </PrivateRoutes>
-            }
-          >
-            {/* Customer home */}
+          {/* ===================== SUBSCRIPTION (owner, always open) ===================== */}
+          <Route element={<SubscriptionShell />}>
+            <Route
+              path="/plans"
+              element={
+                <RoleRoute allow="owner">
+                  <Plans />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="/subscription/buy"
+              element={
+                <RoleRoute allow="owner">
+                  <BuySubscription />
+                </RoleRoute>
+              }
+            />
+          </Route>
+
+          {/* ===================== SHARED + CUSTOMER ===================== */}
+          <Route element={<AppShell />}>
             <Route
               path="/home"
               element={
@@ -263,19 +307,6 @@ const AppRoutes: React.FC = () => {
             />
 
             <Route
-              path="/manage-appointments"
-              element={
-                <RoleRoute allow="owner">
-                  <ManageAppointments />
-                </RoleRoute>
-              }
-            />
-
-            {/*
-              Registered users: enter / change salon code here.
-              NOT the registration random-code-input page.
-            */}
-            <Route
               path="/join-salon"
               element={
                 <RoleRoute allow="customer">
@@ -284,6 +315,7 @@ const AppRoutes: React.FC = () => {
               }
             />
 
+            {/* داشبورد برای هر دو نقش — بنر اشتراک فقط داخل صفحه برای owner */}
             <Route path="/dashboard" element={<Dashboard />} />
 
             <Route
@@ -300,6 +332,7 @@ const AppRoutes: React.FC = () => {
               path="/user-profile-detail/:id"
               element={<UserProfileDetail />}
             />
+
             <Route
               path="/appointments-list"
               element={
@@ -308,24 +341,8 @@ const AppRoutes: React.FC = () => {
                 </RoleRoute>
               }
             />
-            <Route path="/settings" element={<Settings />} />
 
-            <Route
-              path="/manage-employees"
-              element={
-                <RoleRoute allow="owner">
-                  <ManageEmployees />
-                </RoleRoute>
-              }
-            />
-            <Route
-              path="/manage-services"
-              element={
-                <RoleRoute allow="owner">
-                  <ManageServices />
-                </RoleRoute>
-              }
-            />
+            <Route path="/settings" element={<Settings />} />
 
             <Route
               path="/view-appointment/:id"
@@ -335,7 +352,49 @@ const AppRoutes: React.FC = () => {
                 </RoleRoute>
               }
             />
+
             <Route path="/wallet" element={<Wallet />} />
+
+            <Route
+              path="/submit-manual-payment"
+              element={
+                <RoleRoute allow="customer">
+                  <SubmitManualPayment />
+                </RoleRoute>
+              }
+            />
+
+            <Route path="/logout" element={<Logout />} />
+          </Route>
+
+          {/* ===================== OWNER (subscription-gated) ===================== */}
+          <Route element={<OwnerShell />}>
+            <Route
+              path="/manage-appointments"
+              element={
+                <RoleRoute allow="owner">
+                  <ManageAppointments />
+                </RoleRoute>
+              }
+            />
+
+            <Route
+              path="/manage-employees"
+              element={
+                <RoleRoute allow="owner">
+                  <ManageEmployees />
+                </RoleRoute>
+              }
+            />
+
+            <Route
+              path="/manage-services"
+              element={
+                <RoleRoute allow="owner">
+                  <ManageServices />
+                </RoleRoute>
+              }
+            />
 
             <Route
               path="/available-times"
@@ -348,21 +407,72 @@ const AppRoutes: React.FC = () => {
 
             <Route
               path="/update-appointment/:id"
-              element={<UpdateAppointment />}
+              element={
+                <RoleRoute allow="owner">
+                  <UpdateAppointment />
+                </RoleRoute>
+              }
             />
-            <Route path="/update-slots/:id" element={<UpdateSlots />} />
-            <Route path="/working-time" element={<WorkingTime />} />
-            <Route path="/add-working-time" element={<AddWorkingTime />} />
-
-            <Route path="customers-list" element={<CustomersList />} />
-            <Route path="bank-cards" element={<BankCards />} />
-            <Route path="manual-payments" element={<ManualPayments />} />
 
             <Route
-              path="/submit-manual-payment"
+              path="/update-slots/:id"
               element={
-                <RoleRoute allow="customer">
-                  <SubmitManualPayment />
+                <RoleRoute allow="owner">
+                  <UpdateSlots />
+                </RoleRoute>
+              }
+            />
+
+            <Route
+              path="/working-time"
+              element={
+                <RoleRoute allow="owner">
+                  <WorkingTime />
+                </RoleRoute>
+              }
+            />
+
+            <Route
+              path="/add-working-time"
+              element={
+                <RoleRoute allow="owner">
+                  <AddWorkingTime />
+                </RoleRoute>
+              }
+            />
+
+            <Route
+              path="/update-working-time/:id"
+              element={
+                <RoleRoute allow="owner">
+                  <UpdateWorkingTime />
+                </RoleRoute>
+              }
+            />
+
+            <Route
+              path="/customers-list"
+              element={
+                <RoleRoute allow="owner">
+                  <CustomersList />
+                </RoleRoute>
+              }
+            />
+
+            <Route
+              path="/bank-cards"
+              element={
+                <RoleRoute allow="owner">
+                  <BankCards />
+                </RoleRoute>
+              }
+            />
+
+            <Route
+              path="/manual-payments"
+              element={
+                <RoleRoute allow="owner">
+                  <ManualPayments />
                 </RoleRoute>
               }
             />
@@ -403,12 +513,6 @@ const AppRoutes: React.FC = () => {
               }
             />
 
-            <Route path="/users" element={<Users />} />
-            <Route
-              path="/update-working-time/:id"
-              element={<UpdateWorkingTime />}
-            />
-
             <Route
               path="/packages"
               element={
@@ -417,8 +521,18 @@ const AppRoutes: React.FC = () => {
                 </RoleRoute>
               }
             />
-            <Route path="/packages/:id" element={<PackagesInfo />} />
-            <Route path="/logout" element={<Logout />} />
+
+            <Route
+              path="/packages/:id"
+              element={
+                <RoleRoute allow="owner">
+                  <PackagesInfo />
+                </RoleRoute>
+              }
+            />
+
+            {/* فقط superuser پلتفرم — RoleRoute/ACL داخل Users */}
+            <Route path="/users" element={<Users />} />
           </Route>
 
           <Route path="*" element={<NotFound />} />

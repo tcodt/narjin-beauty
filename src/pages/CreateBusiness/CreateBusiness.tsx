@@ -15,6 +15,7 @@ import { BusinessData, businessSchema } from "../../schemas/business.schema";
 import { useAddBusiness } from "../../hooks/business/useAddBusiness";
 import toast from "react-hot-toast";
 import { useUserType } from "../../context/UserTypeContext";
+import { useQueryClient } from "@tanstack/react-query";
 
 const toSlug = (value: string) =>
   value
@@ -48,6 +49,7 @@ const CreateBusiness: React.FC = () => {
   const addBusinessMutation = useAddBusiness();
   const slugValue = watch("slug");
   const { setUserType } = useUserType();
+  const queryClient = useQueryClient();
 
   const handleBack = () => navigate(-1);
 
@@ -59,13 +61,17 @@ const CreateBusiness: React.FC = () => {
       },
       {
         onSuccess: (business) => {
+          setUserType("owner");
+          queryClient.invalidateQueries({ queryKey: ["subscription-status"] });
+          queryClient.invalidateQueries({ queryKey: ["business-me"] });
+
           if (business?.is_active) {
-            setUserType("owner");
-            toast.success("کسب‌وکار با موفقیت فعال شد!");
+            toast.success("کسب‌وکار فعال شد. ۱۴ روز دوره آزمایشی شروع شد.");
+            navigate("/dashboard");
           } else {
             toast.success("درخواست ثبت شد. در انتظار تأیید...");
+            navigate("/waiting-room");
           }
-          navigate("/waiting-room");
         },
         onError: (error: unknown) => {
           console.error(error);
@@ -182,7 +188,7 @@ const CreateBusiness: React.FC = () => {
               <textarea
                 rows={3}
                 placeholder="آدرس کامل کسب‌وکار را وارد کنید..."
-                className={`primary-input-green pr-10 h-auto min-h-[5rem] ${
+                className={`primary-input-green pr-10 h-auto min-h-20 ${
                   errors.address ? "outline-red-500" : ""
                 }`}
                 {...register("address")}

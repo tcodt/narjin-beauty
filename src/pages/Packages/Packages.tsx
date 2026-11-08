@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from "react";
 import { IoCamera } from "react-icons/io5";
 import CustomModal from "../../components/CustomModal/CustomModal";
@@ -34,6 +33,8 @@ import {
 } from "../../utils/themeClasses";
 import EmptyState from "../../components/EmptyState/EmptyState";
 import { BiPackage } from "react-icons/bi";
+import { useHasFeature } from "../../hooks/subscription/useHasFeature";
+import FeatureLocked from "../../components/FeatureLocked/FeatureLocked";
 
 const parentVariants = {
   hidden: { opacity: 0 },
@@ -48,6 +49,11 @@ const childrenVariants = {
   visible: { opacity: 1, y: 0 },
 };
 
+interface ServiceOption {
+  id: number;
+  name: string;
+}
+
 const Packages: React.FC = () => {
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -61,6 +67,9 @@ const Packages: React.FC = () => {
   const { themeColor } = useThemeColor();
   const { data: myBusiness } = useBusinessMe();
   const myBusinessId = myBusiness?.id ?? 0;
+
+  // کلید را با feature.key واقعی API عوض کن اگر فرق داشت
+  const { hasFeature, isLoading: featureLoading } = useHasFeature("packages");
 
   const addForm = useForm<AddPackage>({
     defaultValues: {
@@ -94,7 +103,6 @@ const Packages: React.FC = () => {
   const {
     register: updateRegister,
     handleSubmit: updateHandleSubmit,
-    // formState: { errors: updateErrors },
     reset: updateReset,
     watch: updateWatch,
     setValue: updateSetValue,
@@ -239,7 +247,17 @@ const Packages: React.FC = () => {
     );
   };
 
-  if (isPending) return <Loading />;
+  if (featureLoading || isPending) return <Loading />;
+
+  if (!hasFeature) {
+    return (
+      <FeatureLocked
+        title="پکیج‌ها در پلن شما فعال نیست"
+        description="برای ساخت و مدیریت پکیج‌های ترکیبی، پلن مناسب را از صفحه پلن‌ها تهیه کنید."
+      />
+    );
+  }
+
   if (isError) {
     console.error(error);
     toast.error("خطا در دریافت پکیج‌ها");
@@ -247,6 +265,7 @@ const Packages: React.FC = () => {
 
   const addServiceIds = (addWatch("service_ids") as number[]) || [];
   const updateServiceIds = (updateWatch("service_ids") as number[]) || [];
+  const services = servicesData as ServiceOption[];
 
   const ServicePicker = ({
     selected,
@@ -256,10 +275,10 @@ const Packages: React.FC = () => {
     onToggle: (id: number) => void;
   }) => (
     <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-xl border border-gray-200 p-3 dark:border-gray-600">
-      {servicesData.length === 0 && (
+      {services.length === 0 && (
         <p className="text-xs text-gray-400">سرویسی ثبت نشده است</p>
       )}
-      {servicesData.map((s: any) => {
+      {services.map((s) => {
         const active = selected.includes(s.id);
         return (
           <button
@@ -316,7 +335,6 @@ const Packages: React.FC = () => {
         />
       </div>
 
-      {/* ADD */}
       <CustomModal
         isOpen={isAddOpen}
         onClose={() => {
@@ -342,7 +360,7 @@ const Packages: React.FC = () => {
             <p className="text-sm text-red-500">{addErrors.name.message}</p>
           )}
           <textarea
-            className="primary-input min-h-[5rem] h-auto"
+            className="primary-input min-h-20 h-auto"
             placeholder="توضیحات"
             {...addRegister("desc", { required: "توضیحات الزامی است" })}
           />
@@ -371,7 +389,6 @@ const Packages: React.FC = () => {
         </form>
       </CustomModal>
 
-      {/* UPDATE */}
       <CustomModal
         isOpen={isUpdateOpen}
         onClose={() => {
@@ -394,7 +411,7 @@ const Packages: React.FC = () => {
             {...updateRegister("name", { required: true })}
           />
           <textarea
-            className="primary-input min-h-[5rem] h-auto"
+            className="primary-input min-h-20 h-auto"
             placeholder="توضیحات"
             {...updateRegister("desc", { required: true })}
           />
@@ -416,7 +433,6 @@ const Packages: React.FC = () => {
         </form>
       </CustomModal>
 
-      {/* DELETE LIST */}
       <CustomModal
         isOpen={isDeleteOpen}
         onClose={() => setIsDeleteOpen(false)}
@@ -443,7 +459,6 @@ const Packages: React.FC = () => {
         </div>
       </CustomModal>
 
-      {/* LIST — card UI */}
       {packages.length === 0 ? (
         <EmptyState
           icon={<BiPackage className="h-10 w-10" />}
@@ -451,7 +466,7 @@ const Packages: React.FC = () => {
           description="پکیج‌های ترکیبی سرویس بسازید تا فروش و رزرو راحت‌تر شود."
           action={{
             label: "ساخت پکیج",
-            onClick: () => setIsAddOpen(true), // یا تابع باز کردن مودال خودت
+            onClick: () => setIsAddOpen(true),
           }}
         />
       ) : (
@@ -465,14 +480,14 @@ const Packages: React.FC = () => {
             <motion.article
               key={pkg.id}
               variants={childrenVariants}
-              className={`group overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800 border-s-4 ${themeBorder[themeColor]}`}
+              className={`group overflow-hidden rounded-2xl border border-gray-100 border-s-4 bg-white shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800 ${themeBorder[themeColor]}`}
             >
               <button
                 type="button"
                 className="block w-full text-right"
                 onClick={() => navigate(`/packages/${pkg.id}`)}
               >
-                <div className="aspect-[16/9] overflow-hidden bg-gray-100 dark:bg-gray-700">
+                <div className="aspect-video overflow-hidden bg-gray-100 dark:bg-gray-700">
                   <img
                     src={mediaUrl(pkg.image)}
                     alt={pkg.name}

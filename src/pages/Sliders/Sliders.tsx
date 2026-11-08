@@ -26,6 +26,8 @@ import {
   mediaUrl,
 } from "../../utils/themeClasses";
 import EmptyState from "../../components/EmptyState/EmptyState";
+import { useHasFeature } from "../../hooks/subscription/useHasFeature";
+import FeatureLocked from "../../components/FeatureLocked/FeatureLocked";
 
 const parentVariants = {
   hidden: { opacity: 0 },
@@ -71,7 +73,19 @@ const Sliders: React.FC = () => {
   const { themeColor } = useThemeColor();
   const tc = themeColor;
 
-  if (isPending) return <Loading />;
+  // کلید را با feature.key واقعی API عوض کن اگر فرق داشت
+  const { hasFeature, isLoading: featureLoading } = useHasFeature("sliders");
+
+  if (featureLoading || isPending) return <Loading />;
+
+  if (!hasFeature) {
+    return (
+      <FeatureLocked
+        title="بنرها در پلن شما فعال نیست"
+        description="برای مدیریت بنرهای صفحه اصلی سالن، پلن مناسب را از صفحه پلن‌ها تهیه کنید."
+      />
+    );
+  }
 
   if (isError) {
     toast.error("خطا در بارگذاری بنرها!");
@@ -213,7 +227,6 @@ const Sliders: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-10">
-      {/* ADD */}
       <CustomModal
         isOpen={isAddOpen}
         onClose={() => {
@@ -252,7 +265,7 @@ const Sliders: React.FC = () => {
             </label>
             <textarea
               rows={3}
-              className="primary-input h-auto min-h-[5rem]"
+              className="primary-input h-auto min-h-20"
               {...register("sub_title", {
                 required: "زیرعنوان الزامی است",
                 maxLength: { value: 60, message: "حداکثر ۶۰ کاراکتر" },
@@ -291,7 +304,6 @@ const Sliders: React.FC = () => {
         </form>
       </CustomModal>
 
-      {/* UPDATE */}
       <CustomModal
         isOpen={isUpdateOpen}
         onClose={() => {
@@ -323,7 +335,7 @@ const Sliders: React.FC = () => {
                   prev ? { ...prev, sub_title: e.target.value } : null,
                 )
               }
-              className="primary-input h-auto min-h-[5rem]"
+              className="primary-input h-auto min-h-20"
             />
             <ImageField inputId="update-slider-image" />
             <div className="flex items-center gap-2">
@@ -360,7 +372,6 @@ const Sliders: React.FC = () => {
         )}
       </CustomModal>
 
-      {/* DELETE */}
       <CustomModal
         isOpen={isDeleteOpen}
         onClose={() => setIsDeleteOpen(false)}
@@ -406,7 +417,6 @@ const Sliders: React.FC = () => {
         </div>
       </CustomModal>
 
-      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PageTitle title="بنرها" />
         <Dropdown
@@ -419,7 +429,6 @@ const Sliders: React.FC = () => {
         />
       </div>
 
-      {/* Card grid */}
       {!(sliders && sliders.length) ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-gray-200 bg-white py-16 dark:border-gray-600 dark:bg-gray-800">
           <LuImage size={48} className="text-gray-300" />
@@ -441,9 +450,9 @@ const Sliders: React.FC = () => {
             <motion.article
               key={slider.id}
               variants={childrenVariants}
-              className={`overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800 border-s-4 ${themeBorder[tc]}`}
+              className={`overflow-hidden rounded-2xl border border-gray-100 border-s-4 bg-white shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800 ${themeBorder[tc]}`}
             >
-              <div className="aspect-[16/9] bg-gray-100 dark:bg-gray-700">
+              <div className="aspect-video bg-gray-100 dark:bg-gray-700">
                 {typeof slider.image === "string" ? (
                   <img
                     src={mediaUrl(slider.image)}
@@ -463,7 +472,7 @@ const Sliders: React.FC = () => {
                     {slider.title}
                   </h3>
                   <span
-                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                    className={`shrink-0 rounded-full px-2.5 py-0.5 textarea-xs font-semibold ${
                       slider.is_active
                         ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
                         : "bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"

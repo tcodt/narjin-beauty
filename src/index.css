@@ -363,3 +363,24 @@ html {
 .driver-active-element {
   border-radius: 1rem !important;
 }
+
+/* Plans pagination */
+.plans-bullet {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgb(209 213 219); /* gray-300 */
+  transition: all 200ms ease;
+  cursor: pointer;
+}
+.plans-bullet-active {
+  width: 20px;
+  background: rgb(107 114 128); /* gray-500 — swap for your accent if desired */
+}
+.dark .plans-bullet {
+  background: rgb(75 85 99);
+}
+.dark .plans-bullet-active {
+  background: rgb(156 163 175);
+}
