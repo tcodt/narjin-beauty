@@ -5,14 +5,12 @@ import {
   FaQrcode,
   FaStore,
   FaUsers,
-  FaWallet,
 } from "react-icons/fa";
 import { GiBeard } from "react-icons/gi";
 import {
   MdHome,
   MdOutlineAccountCircle,
   MdPerson,
-  // MdSettings,
   MdSpaceDashboard,
 } from "react-icons/md";
 import { useLocation, useNavigate } from "react-router";
@@ -26,7 +24,7 @@ import { TbCalendarTime } from "react-icons/tb";
 import { useAcl } from "../../context/AclContext";
 import { logoMap } from "../../utils/logoMap";
 import { motion } from "framer-motion";
-import { themeGradientBar, themeText } from "../../utils/themeClasses";
+import { themeText } from "../../utils/themeClasses";
 import { FiCreditCard, FiFileText, FiUsers } from "react-icons/fi";
 
 const parentVariants = {
@@ -53,11 +51,9 @@ type NavItem = {
   label: string;
   path: string;
   requiredPermission: string | null;
-  /** Only customers */
   customerOnly?: boolean;
-  /** Business owner / staff with ACL — not platform-wide */
   ownerOnly?: boolean;
-  /** Only real platform superuser — NOT salon owner */
+  /** فقط سوپریوزر پلتفرم (نه صاحب سالن) */
   platformOnly?: boolean;
 };
 
@@ -69,17 +65,6 @@ const Sidebar: React.FC = () => {
   const { themeColor } = useThemeColor();
   const { role, isBusinessOwner, hasPermission, isSuperuser } = useAcl();
 
-  // useEffect(() => {
-  //   const handleClickOutside = (event: MouseEvent) => {
-  //     const sidebar = document.getElementById("sidebar");
-  //     if (sidebar && !sidebar.contains(event.target as Node) && isSidebarOpen) {
-  //       setIsSidebarOpen(false);
-  //     }
-  //   };
-  //   document.addEventListener("mousedown", handleClickOutside);
-  //   return () => document.removeEventListener("mousedown", handleClickOutside);
-  // }, [isSidebarOpen, setIsSidebarOpen]);
-
   useEffect(() => {
     setIsSidebarOpen(false);
   }, [location.pathname, setIsSidebarOpen]);
@@ -87,11 +72,12 @@ const Sidebar: React.FC = () => {
   const logoSrc = logoMap[themeColor] || "/images/logo-main.jpg";
 
   const isOwner = isBusinessOwner || role === "admin";
-  // Platform admin = superuser without being "just" a salon operator if you need both.
-  // If your product uses is_superuser ONLY for owners, hide users for all owners:
-  const canSeeUsers = isSuperuser && !isBusinessOwner;
-  // If NO ONE who is a salon owner should see users:
-  // const canSeeUsers = isSuperuser && user?.is_superuser && !isOwner;
+
+  /**
+   * لیست کاربران پلتفرم فقط برای سوپریوزر.
+   * صاحب سالن معمولی → 403 از بک‌اند می‌گیرد؛ اصلاً نشان نده.
+   */
+  const canSeeUsers = isSuperuser;
 
   const navItems: NavItem[] = [
     {
@@ -126,7 +112,7 @@ const Sidebar: React.FC = () => {
       label: "کاربران",
       path: "/users",
       requiredPermission: "user_list",
-      platformOnly: true, // ← salon owners never see this
+      platformOnly: true,
     },
     {
       icon: <HiClipboardList size={20} />,
@@ -156,13 +142,7 @@ const Sidebar: React.FC = () => {
       requiredPermission: "packages_list",
       ownerOnly: true,
     },
-    {
-      icon: <FaWallet size={20} />,
-      label: "کیف پول",
-      path: "/wallet",
-      requiredPermission: null,
-      customerOnly: true,
-    },
+    // کیف پول حذف شد — endpoint /payments/wallet/ دیگر وجود ندارد
     {
       icon: <TbCalendarTime size={20} />,
       label: "زمان های در دسترس",
@@ -181,21 +161,21 @@ const Sidebar: React.FC = () => {
       icon: <FiUsers className="h-5 w-5" />,
       label: "مشتریان",
       path: "/customers-list",
-      requiredPermission: "customers-list", //! Need to check if this is correct permission name
+      requiredPermission: "customers-list",
       ownerOnly: true,
     },
     {
       icon: <FiCreditCard className="h-5 w-5" />,
       label: "کارت‌های بانکی",
       path: "/bank-cards",
-      requiredPermission: "bank_cards", //! Need to check if this is correct permission name
+      requiredPermission: "bank_cards",
       ownerOnly: true,
     },
     {
       icon: <FiFileText className="h-5 w-5" />,
       label: "فیش‌های پرداخت",
       path: "/manual-payments",
-      requiredPermission: "payments_record", //! Need to check if this is correct permission name
+      requiredPermission: "payments_record",
       ownerOnly: true,
     },
     {
@@ -230,10 +210,10 @@ const Sidebar: React.FC = () => {
   const filteredNavItems = navItems.filter((item) => {
     if (item.customerOnly && isOwner) return false;
     if (item.ownerOnly && !isOwner) return false;
+
     if (item.platformOnly) {
-      // Business owners must not see Users
-      if (isOwner) return false;
-      return canSeeUsers || hasPermission("user_list");
+      // فقط سوپریوزر پلتفرم — صاحب سالن هرگز نمی‌بیند
+      return canSeeUsers;
     }
 
     if (!item.requiredPermission) return true;
@@ -252,7 +232,6 @@ const Sidebar: React.FC = () => {
         .sidebar-scroll:hover {
           scrollbar-color: rgba(156, 163, 175, 0.4) transparent;
         }
-        /* WebKit (Chrome, Safari, Edge) */
         .sidebar-scroll::-webkit-scrollbar {
           width: 6px;
           background: transparent;
@@ -263,69 +242,57 @@ const Sidebar: React.FC = () => {
         .sidebar-scroll::-webkit-scrollbar-thumb {
           background: transparent;
           border-radius: 9999px;
-          transition: background 0.3s ease;
         }
         .sidebar-scroll:hover::-webkit-scrollbar-thumb {
           background: rgba(156, 163, 175, 0.4);
         }
-        .sidebar-scroll:hover::-webkit-scrollbar-thumb:hover {
-          background: rgba(156, 163, 175, 0.6);
-        }
-        .dark .sidebar-scroll:hover::-webkit-scrollbar-thumb {
-          background: rgba(107, 114, 128, 0.5);
-        }
-        .dark .sidebar-scroll:hover::-webkit-scrollbar-thumb:hover {
-          background: rgba(107, 114, 128, 0.7);
-        }
-        .dark .sidebar-scroll:hover {
-          scrollbar-color: rgba(107, 114, 128, 0.5) transparent;
-        }
       `}</style>
 
+      {/* Overlay */}
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] transition-opacity"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
           onClick={() => setIsSidebarOpen(false)}
           aria-hidden
         />
       )}
 
       <aside
-        id="sidebar-panel"
-        className={`fixed top-0 right-0 z-2000 flex h-full w-[min(18rem,85vw)] flex-col border-e border-gray-200/80 bg-white/95 shadow-2xl backdrop-blur-xl transition-transform duration-300 ease-out dark:border-gray-700 dark:bg-gray-900/95 ${
+        id="sidebar"
+        className={`fixed inset-y-0 right-0 z-50 flex w-72 max-w-[85vw] flex-col border-l border-gray-100 bg-white shadow-xl transition-transform duration-300 dark:border-gray-800 dark:bg-gray-900 ${
           isSidebarOpen ? "translate-x-0" : "translate-x-full"
-        }`}
+        } md:translate-x-0`}
       >
         {/* Header */}
-        <div
-          className={`flex items-center gap-3 bg-linear-to-l ${themeGradientBar[themeColor]} to-${themeColor}-500 px-4 py-5`}
-        >
-          <div className="h-12 w-12 overflow-hidden rounded-full border-2 border-white/40">
-            <img src={logoSrc} alt="" className="h-full w-full object-cover" />
-          </div>
-          <div>
-            <p className="text-base font-bold text-white">آرایشگاه من</p>
-            <p className="text-xs text-white/75">
-              {isOwner ? "پنل مدیریت" : "پنل مشتری"}
+        <div className="flex items-center gap-3 border-b border-gray-100 p-4 dark:border-gray-800">
+          <img
+            src={logoSrc}
+            alt="نارژین"
+            className="h-10 w-10 rounded-xl object-cover"
+          />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-gray-900 dark:text-white">
+              نارژین
             </p>
+            <p className="truncate text-xs text-gray-500">پنل مدیریت</p>
           </div>
         </div>
 
-        {/* Links */}
-        <nav className="sidebar-scroll flex-1 overflow-y-auto px-3 py-4">
+        {/* Nav */}
+        <nav className="sidebar-scroll flex-1 overflow-y-auto p-3">
           <motion.ul
-            className="space-y-1"
             variants={parentVariants}
             initial="hidden"
-            animate={isSidebarOpen ? "visible" : "hidden"}
+            animate="visible"
+            className="space-y-1"
           >
             {filteredNavItems.map((item) => {
               const active =
                 location.pathname === item.path ||
-                (item.path !== "/home" &&
-                  location.pathname.startsWith(item.path));
+                location.pathname.startsWith(item.path + "/");
+
               return (
-                <motion.li key={item.label} variants={childrenVariants}>
+                <motion.li key={item.path} variants={childrenVariants}>
                   <button
                     type="button"
                     onClick={() => {

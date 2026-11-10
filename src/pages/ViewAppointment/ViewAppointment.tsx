@@ -11,7 +11,6 @@ import { useAppointmentById } from "../../hooks/appointments/useAppointmentById"
 import { ThemeColorName, useThemeColor } from "../../context/ThemeColor";
 import Button from "../../components/Button/Button";
 import CustomModal from "../../components/CustomModal/CustomModal";
-import { useWallet } from "../../context/WalletContext";
 import {
   getEmployeeDisplayName,
   getEmployeePhone,
@@ -75,7 +74,6 @@ const ViewAppointment: React.FC = () => {
     isError,
   } = useAppointmentById(appointmentId);
   const { themeColor } = useThemeColor();
-  const { spend, balance } = useWallet();
   const navigate = useNavigate();
 
   if (isPending) return <Loading />;
@@ -270,7 +268,7 @@ const ViewAppointment: React.FC = () => {
                 className="mx-auto h-48 w-48 object-contain"
               />
               <p className="mt-2 font-semibold text-gray-800 dark:text-white">
-                پرداخت با موفقیت انجام شد
+                درخواست پرداخت ثبت شد
               </p>
               <Link
                 to="/appointments-list"
@@ -283,39 +281,30 @@ const ViewAppointment: React.FC = () => {
             <>
               <div className="rounded-xl bg-gray-50 p-4 dark:bg-gray-700/50">
                 <p className="text-sm text-gray-600 dark:text-gray-300">
-                  موجودی کیف پول:{" "}
-                  <span
-                    className={
-                      price > balance
-                        ? "font-bold text-rose-500"
-                        : "font-bold text-emerald-600"
-                    }
-                  >
-                    {balance.toLocaleString("fa-IR")} تومان
-                  </span>
-                </p>
-                <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
                   مبلغ نوبت:{" "}
                   <span className="font-bold">
                     {price.toLocaleString("fa-IR")} تومان
                   </span>
                 </p>
+                <p className="mt-2 text-xs leading-5 text-gray-500">
+                  کیف پول و درگاه آنلاین حذف شده‌اند. مبلغ را کارت‌به‌کارت واریز
+                  کنید و فیش را از صفحه پرداخت ثبت کنید.
+                </p>
               </div>
               <Button
                 type="button"
-                disabled={price > balance}
                 onClick={() => {
-                  spend(price);
-                  setIsDone(true);
+                  setIsModalOpen(false);
+                  navigate("/submit-manual-payment", {
+                    state: {
+                      appointmentId: appointmentData.id,
+                      amount: price,
+                    },
+                  });
                 }}
               >
-                اتمام پرداخت
+                ثبت فیش کارت‌به‌کارت
               </Button>
-              {price > balance && (
-                <Button type="button" onClick={() => navigate("/wallet")}>
-                  شارژ کیف پول
-                </Button>
-              )}
             </>
           )}
         </div>

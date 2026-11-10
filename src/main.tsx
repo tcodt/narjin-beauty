@@ -5,7 +5,6 @@ import App from "./App.tsx";
 import { AuthProvider } from "./context/AuthContext.tsx";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeColorProvider } from "./context/ThemeColor.tsx";
-import { WalletProvider } from "./context/WalletContext.tsx";
 import { JoinedBusinessProvider } from "./context/JoinedBusinessContext.tsx";
 
 const client = new QueryClient({
@@ -23,9 +22,7 @@ createRoot(document.getElementById("root")!).render(
       <AuthProvider>
         <ThemeColorProvider>
           <JoinedBusinessProvider>
-            <WalletProvider>
-              <App />
-            </WalletProvider>
+            <App />
           </JoinedBusinessProvider>
         </ThemeColorProvider>
       </AuthProvider>

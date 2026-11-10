@@ -38,7 +38,6 @@ import PackagesInfo from "../pages/PackagesInfo/PackagesInfo";
 import Logout from "../pages/Logout/Logout";
 import AclManager from "../components/AclManager/AclManager";
 import { useAuth } from "../context/AuthContext";
-import Wallet from "../pages/Wallet/Wallet";
 import AvailableTimes from "../pages/AvailableTimes/AvailableTimes";
 import UserProfileDetail from "../pages/UserProfileDetail/UserProfileDetail";
 import UpdateSlots from "../pages/UpdateSlots/UpdateSlots";
@@ -352,8 +351,6 @@ const AppRoutes: React.FC = () => {
                 </RoleRoute>
               }
             />
-
-            <Route path="/wallet" element={<Wallet />} />
 
             <Route
               path="/submit-manual-payment"

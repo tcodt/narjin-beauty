@@ -69,7 +69,8 @@ const isUserDashboard = (
   d: DashboardResponse | undefined,
 ): d is UserDashboardResponse => d?.type === "user";
 
-const formatMoney = (v: number) => `${v.toLocaleString("fa-IR")} تومان`;
+const formatMoney = (v: number) =>
+  `${Number(v || 0).toLocaleString("fa-IR")} تومان`;
 
 const statusMeta = (status: string) => {
   switch (status) {
@@ -172,15 +173,25 @@ const AdminDashboardView: React.FC<{
   const employeeList = employees ?? [];
   const tc = themeColor;
 
+  const income = useMemo(
+    () => data.income ?? { today: 0, week: 0, month: 0 },
+    [data.income],
+  );
+
   const incomeBars = useMemo(() => {
-    const { today = 0, week = 0, month = 0 } = data.income ?? {};
+    const { today = 0, week = 0, month = 0 } = income;
     const max = Math.max(today, week, month, 1);
     return [
       { label: "امروز", value: today, height: (today / max) * 100 },
       { label: "هفته", value: week, height: (week / max) * 100 },
       { label: "ماه", value: month, height: (month / max) * 100 },
     ];
-  }, [data.income]);
+  }, [income]);
+
+  const hasAnyIncome =
+    (income.today ?? 0) > 0 ||
+    (income.week ?? 0) > 0 ||
+    (income.month ?? 0) > 0;
 
   const pendingCount =
     data.appointments?.filter((a) => a.status === "pending").length ?? 0;
@@ -192,17 +203,26 @@ const AdminDashboardView: React.FC<{
         name={business?.name}
         themeColor={tc}
       />
-
       <div className="col-span-full">
         <Card className="flex h-64 flex-col justify-end p-4 sm:h-72">
-          <div className="mb-2 flex items-center gap-2">
-            <GrLineChart className={themeText[tc]} size={18} />
-            <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-              نمودار درآمد
-            </span>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <GrLineChart className={themeText[tc]} size={18} />
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                نمودار درآمد
+              </span>
+            </div>
+            {!hasAnyIncome && (
+              <span className="text-[11px] text-gray-400">
+                هنوز درآمدی ثبت نشده
+              </span>
+            )}
           </div>
+
           <div
             className={`flex h-full w-full flex-row items-end justify-evenly border-b-2 pb-3 ${themeBorder[tc]}`}
+            role="img"
+            aria-label="نمودار درآمد امروز، هفته و ماه"
           >
             {incomeBars.map((bar, i) => (
               <div
@@ -231,6 +251,33 @@ const AdminDashboardView: React.FC<{
           </div>
         </Card>
       </div>
+
+      <Card className="relative col-span-full grid grid-cols-12 gap-2 overflow-hidden p-4">
+        <div className="absolute left-3 top-3 opacity-40">
+          <LuCircleAlert size={22} className={themeText[tc]} />
+        </div>
+        <span className="col-span-full text-base font-bold text-gray-800 dark:text-gray-100">
+          درآمد
+        </span>
+        {(
+          [
+            ["ماه", income.month],
+            ["هفته", income.week],
+            ["امروز", income.today],
+          ] as const
+        ).map(([label, value]) => (
+          <div key={label} className="col-span-4 min-w-0">
+            <p className="text-xs text-gray-400">{label}</p>
+            <p className="truncate text-sm font-semibold tabular-nums text-gray-700 dark:text-gray-200">
+              {formatMoney(value ?? 0)}
+            </p>
+          </div>
+        ))}
+        <p className="col-span-full mt-1 text-[11px] leading-5 text-gray-400">
+          مبالغ بر اساس داده‌های داشبورد سالن شماست. پرداخت آنلاین و کیف پول
+          فعال نیست.
+        </p>
+      </Card>
 
       <StatCard
         className="col-span-4 sm:col-span-3"
@@ -471,14 +518,14 @@ const UserDashboardView: React.FC<{
             <p className="font-semibold text-amber-800 dark:text-amber-200">
               پرداخت ناقص
             </p>
-            <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
+            <p className="text-sm text-amber-800 dark:text-amber-200">
               یک یا چند رزرو هنوز پرداخت نشده است.
             </p>
             <Link
-              to="/wallet"
+              to="/manual-payments"
               className={`mt-2 inline-flex items-center gap-1 text-sm font-medium text-amber-800 underline hover:opacity-80 dark:text-amber-200 ${focusRing}`}
             >
-              کیف پول <HiArrowLeft size={14} />
+              مدیریت فیش‌ها <HiArrowLeft size={14} />
             </Link>
           </div>
         </div>

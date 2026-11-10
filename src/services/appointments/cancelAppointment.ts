@@ -1,11 +1,14 @@
 import api from "../../utils/api";
 
+/**
+ * لغو نوبت توسط مشتری
+ * Backend: POST /reservations/my-appointments/<id>/cancel/
+ * Success: 200 { message }
+ * Already canceled: 400 { error }
+ */
 export const cancelAppointment = async (id: number) => {
-  try {
-    const response = await api.post(`/reservations/appointments/${id}/cancel/`);
-    return response.data;
-  } catch (error) {
-    console.log(error);
-    throw error;
-  }
+  const response = await api.post(
+    `/reservations/my-appointments/${id}/cancel/`,
+  );
+  return response.data;
 };

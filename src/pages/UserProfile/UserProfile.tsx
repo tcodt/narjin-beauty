@@ -12,14 +12,13 @@ import { IoCamera, IoCheckmarkCircle } from "react-icons/io5";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import { AxiosError } from "axios";
 import { motion } from "framer-motion";
 
 import { useGetProfile } from "../../hooks/profile/useGetProfile";
 import { useUpdateProfile } from "../../hooks/profile/useUpdateProfile";
 import { useBusinessMe } from "../../hooks/business/useBusinessMe";
 import { useUpdateBusiness } from "../../hooks/business/useUpdateBusiness";
-import { UpdateProfile } from "../../types/profile";
+import { UpdateProfileFormValues } from "../../types/profile";
 import { ThemeColorName, useThemeColor } from "../../context/ThemeColor";
 import { useAcl } from "../../context/AclContext";
 import CustomModal from "../../components/CustomModal/CustomModal";
@@ -68,7 +67,7 @@ const UserProfile: React.FC = () => {
     handleSubmit,
     setValue,
     formState: { errors },
-  } = useForm<UpdateProfile>({
+  } = useForm<UpdateProfileFormValues>({
     defaultValues: {
       first_name: "",
       last_name: "",
@@ -115,23 +114,27 @@ const UserProfile: React.FC = () => {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("حجم فایل بیش از حد مجاز است");
+
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      toast.error("فقط JPG، PNG یا WEBP مجاز است");
+      e.target.value = "";
       return;
     }
-    if (!["image/jpeg", "image/png"].includes(file.type)) {
-      toast.error("فرمت فایل مجاز نیست");
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("حداکثر حجم ۵ مگابایت");
+      e.target.value = "";
       return;
     }
     setImage(file);
     setPreview(URL.createObjectURL(file));
   };
 
-  const onSubmitProfile = (data: UpdateProfile) => {
+  const onSubmitProfile = (data: UpdateProfileFormValues) => {
     const formData = new FormData();
-    formData.append("first_name", data.first_name);
-    formData.append("last_name", data.last_name);
-    formData.append("phone_number", data.phone_number);
+    formData.append("first_name", data.first_name.trim());
+    formData.append("last_name", data.last_name.trim());
+    // phone_number را نفرست — فقط‌خواندنی است
     if (image) formData.append("image", image);
 
     updateProfileMutation.mutate(formData, {
@@ -142,9 +145,8 @@ const UserProfile: React.FC = () => {
         setImage(null);
         setPreview(null);
       },
-      onError: (err) => {
+      onError: () => {
         toast.error("خطا در بروزرسانی پروفایل");
-        console.error(err as AxiosError);
       },
     });
   };
@@ -427,20 +429,16 @@ const UserProfile: React.FC = () => {
           <div>
             <label className="mb-1 block text-xs text-gray-500">موبایل</label>
             <input
-              className={`primary-input ${errors.phone_number ? "border-red-500" : ""}`}
-              {...register("phone_number", {
-                required: "شماره الزامی است",
-                pattern: {
-                  value: /^09[0-9]{9}$/,
-                  message: "شماره معتبر نیست",
-                },
-              })}
+              className="primary-input cursor-not-allowed bg-gray-100 opacity-80 dark:bg-gray-800"
+              readOnly
+              disabled
+              dir="ltr"
+              value={userProfile?.phone_number ?? ""}
+              aria-readonly
             />
-            {errors.phone_number && (
-              <p className="mt-1 text-xs text-red-500">
-                {errors.phone_number.message}
-              </p>
-            )}
+            <p className="mt-1 text-[11px] text-gray-400">
+              شماره موبایل قابل تغییر نیست
+            </p>
           </div>
 
           <div>
@@ -453,7 +451,7 @@ const UserProfile: React.FC = () => {
             <input
               id="profile-image"
               type="file"
-              accept="image/*"
+              accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
               className="hidden"
               onChange={handleImageChange}
             />

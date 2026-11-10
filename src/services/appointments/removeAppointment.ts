@@ -1,6 +1,9 @@
 import api from "../../utils/api";
 
-export const removeAppointment = async (id: number) => {
-  const response = await api.delete(`/reservations/appointments/${id}/`);
-  return response.data;
+/**
+ * لغو با DELETE (معادل cancel)
+ * Backend: DELETE /reservations/my-appointments/<id>/ → 204 No Content
+ */
+export const removeAppointment = async (id: number): Promise<void> => {
+  await api.delete(`/reservations/my-appointments/${id}/`);
 };

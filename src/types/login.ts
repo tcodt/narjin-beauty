@@ -8,5 +8,5 @@ export interface LoginType {
 export interface LoginResponse {
   refresh: string;
   access: string;
-  user: User;
+  user: User; // بدون password
 }

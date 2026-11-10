@@ -13,7 +13,7 @@ interface AclContextType {
   isOwner: boolean;
   isSuperuser: boolean;
   isLoading: boolean;
-  /** True when this account runs a business panel */
+  /** True when this account runs a business panel (salon owner) */
   isBusinessOwner: boolean;
 }
 
@@ -49,15 +49,26 @@ export const AclProvider: React.FC<AclProviderProps> = ({
   const isOwnerFlag = !!userInfo?.is_owner;
   const isSuperuser = !!userInfo?.is_superuser;
 
-  // Owner if flag OR they actually have a business OR chose owner flow
+  /**
+   * صاحب سالن واقعی.
+   * مهم: isSuperuser را اینجا قاطی نکن.
+   * قبلاً isSuperuser هم isBusinessOwner می‌شد → Users از سایدبار حذف می‌شد.
+   */
   const isBusinessOwner =
-    isSuperuser || // فقط ادمین پلتفرم اگر لازم است
-    (hasBusiness && businessMe?.is_active !== false);
+    isOwnerFlag || (hasBusiness && businessMe?.is_active !== false);
 
-  const isAdmin = isBusinessOwner;
+  /**
+   * دسترسی کامل پنل سالن (صاحب کسب‌وکار).
+   * سوپریوزر پلتفرم جدا است و از isSuperuser کنترل می‌شود.
+   */
+  const isSalonAdmin = isBusinessOwner;
 
   const userPermissions = useMemo<string[]>(() => {
-    if (isAdmin) return ADMIN_PERMISSIONS;
+    // سوپریوزر پلتفرم → همه پرمیشن‌ها
+    if (isSuperuser) return ADMIN_PERMISSIONS;
+
+    // صاحب سالن → همه پرمیشن‌های پنل سالن
+    if (isSalonAdmin) return ADMIN_PERMISSIONS;
 
     if (userPermissionData?.permissions_display?.length) {
       return userPermissionData.permissions_display.map((p) => p.code);
@@ -70,16 +81,16 @@ export const AclProvider: React.FC<AclProviderProps> = ({
     }
 
     return [];
-  }, [isAdmin, userPermissionData]);
+  }, [isSuperuser, isSalonAdmin, userPermissionData]);
 
   const role = useMemo<"admin" | "employee" | "normal-user">(() => {
-    if (isAdmin) return "admin";
+    if (isSuperuser || isSalonAdmin) return "admin";
     if (userPermissions.length > 0) return "employee";
     return "normal-user";
-  }, [isAdmin, userPermissions.length]);
+  }, [isSuperuser, isSalonAdmin, userPermissions.length]);
 
   const hasPermission = (permission: string | PermissionsList) => {
-    if (isAdmin) return true;
+    if (isSuperuser || isSalonAdmin) return true;
     return userPermissions.includes(permission);
   };
 

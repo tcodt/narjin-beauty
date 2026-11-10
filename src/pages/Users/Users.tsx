@@ -18,6 +18,8 @@ import { User } from "../../types/users";
 import Dropdown from "../../components/Dropdown/Dropdown";
 import { motion } from "framer-motion";
 import { themeText } from "../../utils/themeClasses";
+import { useNavigate } from "react-router";
+import { useAcl } from "../../context/AclContext";
 
 // Define interfaces for form data
 interface UserFormData {
@@ -49,7 +51,10 @@ const getImageUrl = (imagePath: string | null | undefined): string | null => {
 };
 
 const Users: React.FC = () => {
-  const { data: usersData } = useGetUsers();
+  const navigate = useNavigate();
+  const { isSuperuser, hasPermission, isLoading: aclLoading } = useAcl();
+  const allowed = isSuperuser || hasPermission("user_list");
+  const { data: usersData, isPending, isError, error } = useGetUsers();
   const addUserMutation = useAddUser();
   const updateUserMutation = useUpdateUser();
   const removeUserMutation = useRemoveUser();
@@ -297,6 +302,54 @@ const Users: React.FC = () => {
 
   const toggle = () => setIsVisible(!isVisible);
   const toggleUpdatePass = () => setIsUpdatePassVisible(!isUpdatePassVisible);
+
+  if (aclLoading) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-sm text-gray-500">
+        در حال بررسی دسترسی...
+      </div>
+    );
+  }
+
+  if (!allowed) {
+    return (
+      <div className="mx-auto max-w-md space-y-4 py-16 text-center">
+        <p className="text-base font-semibold text-gray-800 dark:text-white">
+          دسترسی ندارید
+        </p>
+        <p className="text-sm text-gray-500">
+          مدیریت کاربران فقط برای ادمین پلتفرم فعال است.
+        </p>
+        <Button type="button" onClick={() => navigate("/dashboard")}>
+          بازگشت به داشبورد
+        </Button>
+      </div>
+    );
+  }
+
+  if (isError) {
+    const status = (error as AxiosError)?.response?.status;
+    if (status === 403) {
+      return (
+        <div className="mx-auto max-w-md space-y-4 py-16 text-center">
+          <p className="text-base font-semibold text-gray-800 dark:text-white">
+            خطای ۴۰۳ — دسترسی ندارید
+          </p>
+          <Button type="button" onClick={() => navigate("/dashboard")}>
+            بازگشت
+          </Button>
+        </div>
+      );
+    }
+  }
+
+  if (isPending) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-sm text-gray-500">
+        در حال بارگذاری کاربران...
+      </div>
+    );
+  }
 
   return (
     <section className="space-y-6">

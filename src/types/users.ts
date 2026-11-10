@@ -3,7 +3,7 @@ export interface User {
   first_name: string;
   last_name: string;
   phone_number: string;
-  image: string;
+  image: string | null;
   is_owner: boolean;
   is_superuser?: boolean;
   is_active: boolean;
