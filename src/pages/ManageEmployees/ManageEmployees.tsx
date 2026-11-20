@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from "react";
-import Loading from "../../components/Loading/Loading";
 import toast from "react-hot-toast";
 import { FaRegTrashAlt, FaUser } from "react-icons/fa";
 import { FaPencil } from "react-icons/fa6";
@@ -32,15 +31,13 @@ import { themeText } from "../../utils/themeClasses";
 import EmptyState from "../../components/EmptyState/EmptyState";
 import SearchBar from "../../components/SearchBar/SearchBar";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
-import { useHasFeature } from "../../hooks/subscription/useHasFeature";
-import FeatureLocked from "../../components/FeatureLocked/FeatureLocked";
 
 type StatusFilter = "all" | "active" | "inactive";
 
 const API_ORIGIN = "https://queuingprojectapi.pythonanywhere.com";
 
 const ManageEmployees: React.FC = () => {
-  const { data: employees = [], isPending, isError, error } = useGetEmployees();
+  const { data: employees = [], isError, error } = useGetEmployees();
 
   const addEmployeeMutation = useAddEmployee();
   const updateEmployeeMutation = useUpdateEmployee();
@@ -49,21 +46,6 @@ const ManageEmployees: React.FC = () => {
   const { themeColor } = useThemeColor();
   const { user } = useAuth();
   const currentUserId = user?.id;
-
-  // ---------- Feature Gate ----------
-  const {
-    hasFeature,
-    isLoading: featureLoading,
-    value: featureValue,
-  } = useHasFeature("employees");
-
-  // اگر value عدد باشد → حداکثر تعداد کارمند
-  const maxEmployees =
-    featureValue === "نامحدود" || !featureValue
-      ? Infinity
-      : Number(featureValue) || Infinity;
-
-  const canAddMore = employees.length < maxEmployees;
 
   // ---------- Local State ----------
   const [searchQuery, setSearchQuery] = useState("");
@@ -103,12 +85,6 @@ const ManageEmployees: React.FC = () => {
   };
 
   const openAdd = () => {
-    if (!canAddMore) {
-      toast.error(
-        `حداکثر تعداد آرایشگر در پلن فعلی شما ${maxEmployees} نفر است. برای افزودن بیشتر پلن را ارتقا دهید.`,
-      );
-      return;
-    }
     resetAddForm();
     setIsAddOpen(true);
   };
@@ -168,10 +144,6 @@ const ManageEmployees: React.FC = () => {
 
   /** POST /business/employees/create/ */
   const handleAddEmployee = () => {
-    if (!canAddMore) {
-      toast.error("به سقف تعداد آرایشگر پلن خود رسیده‌اید.");
-      return;
-    }
     if (!firstName.trim() || !lastName.trim()) {
       toast.error("نام و نام خانوادگی الزامی است");
       return;
@@ -289,19 +261,6 @@ const ManageEmployees: React.FC = () => {
     });
   }, [employees, debouncedSearch, statusFilter]);
 
-  // ---------- Early returns ----------
-  if (isPending || featureLoading) return <Loading />;
-
-  // Feature not purchased
-  if (!hasFeature) {
-    return (
-      <FeatureLocked
-        title="مدیریت آرایشگران در پلن شما فعال نیست"
-        description="با ارتقای پلن می‌توانید آرایشگر اضافه کنید."
-      />
-    );
-  }
-
   if (isError) {
     console.error(error);
     return (
@@ -402,14 +361,6 @@ const ManageEmployees: React.FC = () => {
         title="افزودن آرایشگر جدید"
       >
         <div className="flex flex-col gap-3">
-          <p className="text-xs leading-5 text-gray-500 dark:text-gray-400">
-            حساب کاربری جدید برای آرایشگر ساخته می‌شود.
-            {maxEmployees !== Infinity && (
-              <span className="mt-1 block font-medium text-amber-600">
-                ظرفیت پلن شما: {employees.length} از {maxEmployees} نفر
-              </span>
-            )}
-          </p>
           <input
             className="primary-input"
             placeholder="نام *"
@@ -454,7 +405,7 @@ const ManageEmployees: React.FC = () => {
             type="button"
             variant="primary"
             onClick={handleAddEmployee}
-            disabled={addEmployeeMutation.isPending || !canAddMore}
+            disabled={addEmployeeMutation.isPending}
           >
             {addEmployeeMutation.isPending ? "در حال ثبت..." : "ثبت آرایشگر"}
           </Button>
@@ -465,11 +416,6 @@ const ManageEmployees: React.FC = () => {
       <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
         <div>
           <PageTitle title="آرایشگران" />
-          {maxEmployees !== Infinity && (
-            <p className="mt-1 text-xs text-gray-500">
-              {employees.length} از {maxEmployees} نفر (بر اساس پلن شما)
-            </p>
-          )}
         </div>
         <Dropdown
           isAddOpen={isAddOpen}

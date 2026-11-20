@@ -6,22 +6,28 @@ import { TbPasswordFingerprint } from "react-icons/tb";
 import { useThemeColor } from "../../context/ThemeColor";
 import { useSendResetCode } from "../../hooks/accounts/send-reset-code/useSendResetCode";
 import toast from "react-hot-toast";
+import { parseApiError } from "../../utils/parseApiError";
+import { useRateLimitGuard } from "../../hooks/useRateLimitGuard";
 
 const ForgotPassword: React.FC = () => {
   const navigate = useNavigate();
   const { themeColor } = useThemeColor();
   const [phoneNumber, setPhoneNumber] = useState<string>("");
   const sendResetCodeMutation = useSendResetCode();
+  const rateLimit = useRateLimitGuard();
 
   const getBackToPreviousPage = () => {
     navigate(-1);
   };
 
-  const handleSubmit = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (rateLimit.isLimited) return;
 
-    if (phoneNumber.length !== 11)
-      return toast.error("شماره موبایل باید 11 رقم باشد");
+    if (phoneNumber.length !== 11) {
+      toast.error("شماره موبایل باید 11 رقم باشد");
+      return;
+    }
 
     sendResetCodeMutation.mutate(phoneNumber, {
       onSuccess: () => {
@@ -30,8 +36,9 @@ const ForgotPassword: React.FC = () => {
           state: { phoneNumber },
         });
       },
-      onError: () => {
-        toast.error("شماره موبایل معتبر نیست یا مشکلی پیش آمده");
+      onError: (error) => {
+        rateLimit.triggerFromError(error);
+        toast.error(parseApiError(error));
       },
     });
   };
@@ -40,14 +47,14 @@ const ForgotPassword: React.FC = () => {
     <section className="p-4">
       <PageBar title="بازنشانی رمز عبور" handleClick={getBackToPreviousPage} />
 
-      <form className="flex flex-col gap-8 mt-12 pb-4">
+      <form className="mt-12 flex flex-col gap-8 pb-4" onSubmit={handleSubmit}>
         <div className="flex items-center justify-center">
           <TbPasswordFingerprint
             size={70}
             className={`text-${themeColor}-500`}
           />
         </div>
-        <p className="text-base text-gray-700 font-medium text-center">
+        <p className="text-center text-base font-medium text-gray-700 dark:text-gray-200">
           شماره موبایل خود را وارد کنید
         </p>
         <input
@@ -61,10 +68,33 @@ const ForgotPassword: React.FC = () => {
           }
           minLength={11}
           maxLength={11}
+          disabled={rateLimit.isLimited || sendResetCodeMutation.isPending}
         />
-        <Button type="submit" onClick={handleSubmit}>
-          {sendResetCodeMutation.isPending ? "منتظر بمانید..." : " ادامه"}
+        <Button
+          type="submit"
+          disabled={
+            sendResetCodeMutation.isPending ||
+            rateLimit.isLimited ||
+            phoneNumber.length !== 11
+          }
+        >
+          {rateLimit.isLimited
+            ? `لطفاً ${rateLimit.secondsLeft} ثانیه صبر کنید`
+            : sendResetCodeMutation.isPending
+              ? "منتظر بمانید..."
+              : "ادامه"}
         </Button>
+
+        {rateLimit.isLimited && (
+          <p
+            className="text-center text-sm text-amber-600 dark:text-amber-400"
+            role="status"
+            aria-live="polite"
+          >
+            تعداد درخواست‌ها زیاد است. پس از پایان شمارش می‌توانید دوباره تلاش
+            کنید.
+          </p>
+        )}
       </form>
     </section>
   );

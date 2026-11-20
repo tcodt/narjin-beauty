@@ -43,6 +43,9 @@ const statusMeta: Record<
   },
 };
 
+/** Only statuses the owner may set from this page — never restore to pending */
+type OwnerAllowedStatus = "confirmed" | "canceled";
+
 function formatDateFa(isoDate: string): string {
   try {
     const d = new Date(isoDate);
@@ -55,7 +58,6 @@ function formatDateFa(isoDate: string): string {
 
 function formatTime(t: string): string {
   if (!t) return "—";
-  // "14:30:00" → "14:30"
   return t.slice(0, 5);
 }
 
@@ -71,20 +73,21 @@ const OwnerAppointment: React.FC = () => {
     isError,
     refetch,
   } = useBusinessAppointment(
-    Number.isFinite(appointmentId) ? appointmentId : undefined,
+    Number.isFinite(appointmentId) && appointmentId > 0
+      ? appointmentId
+      : undefined,
   );
 
   const updateMut = useUpdateBusinessAppointmentStatus();
 
-  const setStatus = (status: AppointmentStatus) => {
+  const setStatus = (status: OwnerAllowedStatus) => {
     if (!appt) return;
-    const msg =
-      status === "confirmed"
-        ? "نوبت تأیید شود؟"
-        : status === "canceled"
-          ? "نوبت رد/لغو شود؟"
-          : "تغییر وضعیت؟";
+    // Hard guard: never re-open canceled/confirmed as pending from client
+    if (appt.status !== "pending") return;
+
+    const msg = status === "confirmed" ? "نوبت تأیید شود؟" : "نوبت رد/لغو شود؟";
     if (!window.confirm(msg)) return;
+
     updateMut.mutate({ id: appt.id, payload: { status } });
   };
 
@@ -119,7 +122,7 @@ const OwnerAppointment: React.FC = () => {
   }
 
   const st = statusMeta[appt.status] ?? statusMeta.pending;
-  const isPending = appt.status === "pending";
+  const canDecide = appt.status === "pending" && !updateMut.isPending;
 
   const rows: {
     icon: React.ReactNode;
@@ -178,10 +181,7 @@ const OwnerAppointment: React.FC = () => {
         </div>
       </div>
 
-      {/* Status banner */}
-      <div
-        className={`flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800`}
-      >
+      <div className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div>
           <p className="text-xs text-gray-500">وضعیت</p>
           <span
@@ -197,7 +197,6 @@ const OwnerAppointment: React.FC = () => {
         </div>
       </div>
 
-      {/* Details */}
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <ul className="divide-y divide-gray-100 dark:divide-gray-700">
           {rows.map((row) => (
@@ -221,8 +220,8 @@ const OwnerAppointment: React.FC = () => {
         </ul>
       </div>
 
-      {/* Owner actions — NO payment button */}
-      {isPending && (
+      {/* Only pending: confirm or reject. No restore / activate for canceled. */}
+      {canDecide && (
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
@@ -245,9 +244,15 @@ const OwnerAppointment: React.FC = () => {
         </div>
       )}
 
-      {!isPending && (
-        <div className="rounded-2xl border border-dashed border-gray-300 py-6 text-center text-sm text-gray-500 dark:border-gray-600">
-          این نوبت دیگر قابل تغییر وضعیت از این صفحه نیست.
+      {appt.status === "confirmed" && (
+        <div className="rounded-2xl border border-dashed border-emerald-300 bg-emerald-50/60 py-5 text-center text-sm text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-200">
+          این نوبت تأیید شده است و از این صفحه قابل تغییر نیست.
+        </div>
+      )}
+
+      {appt.status === "canceled" && (
+        <div className="rounded-2xl border border-dashed border-red-300 bg-red-50/60 py-5 text-center text-sm text-red-800 dark:border-red-700 dark:bg-red-900/20 dark:text-red-200">
+          این نوبت لغو شده است. امکان فعال‌سازی مجدد از پنل وجود ندارد.
         </div>
       )}
 

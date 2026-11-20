@@ -1,7 +1,7 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router";
 import { useSubscriptionStatus } from "../../hooks/subscription/useSubscription";
-import { canUsePanel } from "../../hooks/subscription/useHasFeature";
+import { canUsePanel } from "../../hooks/subscription/useFeature";
 import { useAcl } from "../../context/AclContext";
 import Loading from "../Loading/Loading";
 

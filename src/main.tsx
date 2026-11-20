@@ -6,6 +6,9 @@ import { AuthProvider } from "./context/AuthContext.tsx";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeColorProvider } from "./context/ThemeColor.tsx";
 import { JoinedBusinessProvider } from "./context/JoinedBusinessContext.tsx";
+import dayjs from "dayjs";
+import jalaliday from "jalaliday";
+dayjs.extend(jalaliday);
 
 const client = new QueryClient({
   defaultOptions: {

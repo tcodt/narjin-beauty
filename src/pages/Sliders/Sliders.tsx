@@ -8,7 +8,6 @@ import { AxiosError } from "axios";
 import Button from "../../components/Button/Button";
 import CustomModal from "../../components/CustomModal/CustomModal";
 import { useGetSliders } from "../../hooks/sliders/useGetSliders";
-import Loading from "../../components/Loading/Loading";
 import { FaPencil } from "react-icons/fa6";
 import { FaRegTrashAlt } from "react-icons/fa";
 import { useRemoveSlider } from "../../hooks/sliders/useRemoveSlider";
@@ -26,8 +25,6 @@ import {
   mediaUrl,
 } from "../../utils/themeClasses";
 import EmptyState from "../../components/EmptyState/EmptyState";
-import { useHasFeature } from "../../hooks/subscription/useHasFeature";
-import FeatureLocked from "../../components/FeatureLocked/FeatureLocked";
 
 const parentVariants = {
   hidden: { opacity: 0 },
@@ -68,24 +65,10 @@ const Sliders: React.FC = () => {
   const slidersMutation = useAddSlider();
   const removeSliderMutation = useRemoveSlider();
   const updateSliderMutation = useUpdateSlider();
-  const { data: sliders, isPending, isError, error } = useGetSliders();
+  const { data: sliders, isError, error } = useGetSliders();
   const queryClient = useQueryClient();
   const { themeColor } = useThemeColor();
   const tc = themeColor;
-
-  // کلید را با feature.key واقعی API عوض کن اگر فرق داشت
-  const { hasFeature, isLoading: featureLoading } = useHasFeature("sliders");
-
-  if (featureLoading || isPending) return <Loading />;
-
-  if (!hasFeature) {
-    return (
-      <FeatureLocked
-        title="بنرها در پلن شما فعال نیست"
-        description="برای مدیریت بنرهای صفحه اصلی سالن، پلن مناسب را از صفحه پلن‌ها تهیه کنید."
-      />
-    );
-  }
 
   if (isError) {
     toast.error("خطا در بارگذاری بنرها!");

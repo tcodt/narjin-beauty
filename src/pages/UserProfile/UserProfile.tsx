@@ -24,6 +24,7 @@ import { useAcl } from "../../context/AclContext";
 import CustomModal from "../../components/CustomModal/CustomModal";
 import Button from "../../components/Button/Button";
 import { themeBgSoft, themeText } from "../../utils/themeClasses";
+import { parseApiError } from "../../utils/parseApiError";
 
 type BusinessFormValues = {
   name: string;
@@ -37,6 +38,21 @@ const BUSINESS_TYPE_LABEL: Record<string, string> = {
   male_salon: "آرایشگاه مردانه",
   female_salon: "آرایشگاه زنانه",
 };
+
+const PERSIAN_MONTHS: { value: number; label: string }[] = [
+  { value: 1, label: "فروردین" },
+  { value: 2, label: "اردیبهشت" },
+  { value: 3, label: "خرداد" },
+  { value: 4, label: "تیر" },
+  { value: 5, label: "مرداد" },
+  { value: 6, label: "شهریور" },
+  { value: 7, label: "مهر" },
+  { value: 8, label: "آبان" },
+  { value: 9, label: "آذر" },
+  { value: 10, label: "دی" },
+  { value: 11, label: "بهمن" },
+  { value: 12, label: "اسفند" },
+];
 
 const UserProfile: React.FC = () => {
   const [isUpdateOpen, setIsUpdateOpen] = useState(false);
@@ -72,6 +88,8 @@ const UserProfile: React.FC = () => {
       first_name: "",
       last_name: "",
       phone_number: "",
+      birthday_day: null,
+      birthday_month: null,
     },
   });
 
@@ -95,6 +113,14 @@ const UserProfile: React.FC = () => {
     setValue("first_name", userProfile.first_name || "");
     setValue("last_name", userProfile.last_name || "");
     setValue("phone_number", userProfile.phone_number || "");
+    setValue(
+      "birthday_day",
+      userProfile.birthday_day != null ? userProfile.birthday_day : null,
+    );
+    setValue(
+      "birthday_month",
+      userProfile.birthday_month != null ? userProfile.birthday_month : null,
+    );
   }, [userProfile, setValue]);
 
   useEffect(() => {
@@ -135,6 +161,18 @@ const UserProfile: React.FC = () => {
     formData.append("first_name", data.first_name.trim());
     formData.append("last_name", data.last_name.trim());
     // phone_number را نفرست — فقط‌خواندنی است
+    // is_owner / is_superuser / is_staff را هرگز نفرست
+
+    if (data.birthday_day != null && data.birthday_day !== ("" as unknown)) {
+      formData.append("birthday_day", String(data.birthday_day));
+    }
+    if (
+      data.birthday_month != null &&
+      data.birthday_month !== ("" as unknown)
+    ) {
+      formData.append("birthday_month", String(data.birthday_month));
+    }
+
     if (image) formData.append("image", image);
 
     updateProfileMutation.mutate(formData, {
@@ -145,8 +183,8 @@ const UserProfile: React.FC = () => {
         setImage(null);
         setPreview(null);
       },
-      onError: () => {
-        toast.error("خطا در بروزرسانی پروفایل");
+      onError: (error) => {
+        toast.error(parseApiError(error));
       },
     });
   };
@@ -161,7 +199,7 @@ const UserProfile: React.FC = () => {
           setIsBusinessEditOpen(false);
           queryClient.invalidateQueries({ queryKey: ["business-me"] });
         },
-        onError: () => toast.error("خطا در ذخیره کسب‌وکار"),
+        onError: (error) => toast.error(parseApiError(error)),
       },
     );
   });
@@ -176,13 +214,21 @@ const UserProfile: React.FC = () => {
     }
   };
 
+  const birthdayLabel =
+    userProfile?.birthday_day && userProfile?.birthday_month
+      ? `${userProfile.birthday_day} ${
+          PERSIAN_MONTHS.find((m) => m.value === userProfile.birthday_month)
+            ?.label ?? ""
+        }`
+      : null;
+
   return (
     <section className="mx-auto max-w-2xl space-y-5 pb-12">
       {/* Hero card */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`relative overflow-hidden rounded-3xl bg-gradient-to-br from-${themeColor}-500 to-${themeColor}-700 p-6 text-white shadow-lg`}
+        className={`relative overflow-hidden rounded-3xl bg-linear-to-br from-${themeColor}-500 to-${themeColor}-700 p-6 text-white shadow-lg`}
       >
         <div className="absolute -left-8 -top-8 h-32 w-32 rounded-full bg-white/10" />
         <div className="absolute -bottom-10 left-20 h-28 w-28 rounded-full bg-white/10" />
@@ -206,6 +252,11 @@ const UserProfile: React.FC = () => {
             <p className="mt-0.5 text-sm text-white/85" dir="ltr">
               {userProfile?.phone_number}
             </p>
+            {birthdayLabel && (
+              <p className="mt-0.5 text-xs text-white/75">
+                تولد: {birthdayLabel}
+              </p>
+            )}
             <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium backdrop-blur">
               <IoCheckmarkCircle />
               {roleLabel}
@@ -351,7 +402,7 @@ const UserProfile: React.FC = () => {
                       height={200}
                       className="rounded-2xl border border-white bg-white p-2 shadow-sm"
                     />
-                    <p className="text-center text-[11px] text-gray-500">
+                    <p className="text-center textarea-xs text-gray-500">
                       مشتری با اسکن این کد یا وارد کردن عدد، به سالن شما وصل
                       می‌شود
                     </p>
@@ -387,7 +438,11 @@ const UserProfile: React.FC = () => {
       {/* Edit profile modal */}
       <CustomModal
         isOpen={isUpdateOpen}
-        onClose={() => setIsUpdateOpen(false)}
+        onClose={() => {
+          setIsUpdateOpen(false);
+          setImage(null);
+          setPreview(null);
+        }}
         title="ویرایش پروفایل"
       >
         <form onSubmit={handleSubmit(onSubmitProfile)} className="space-y-4">
@@ -436,8 +491,52 @@ const UserProfile: React.FC = () => {
               value={userProfile?.phone_number ?? ""}
               aria-readonly
             />
-            <p className="mt-1 text-[11px] text-gray-400">
+            <p className="mt-1 textarea-xs text-gray-400">
               شماره موبایل قابل تغییر نیست
+            </p>
+          </div>
+
+          {/* Birthday — day + month only (no year) */}
+          <div>
+            <label className="mb-1 block text-xs text-gray-500">
+              تاریخ تولد
+            </label>
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <select
+                  className="primary-input"
+                  {...register("birthday_day", {
+                    setValueAs: (v) =>
+                      v === "" || v == null ? null : Number(v),
+                  })}
+                >
+                  <option value="">روز</option>
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1">
+                <select
+                  className="primary-input"
+                  {...register("birthday_month", {
+                    setValueAs: (v) =>
+                      v === "" || v == null ? null : Number(v),
+                  })}
+                >
+                  <option value="">ماه</option>
+                  {PERSIAN_MONTHS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <p className="mt-1 textarea-xs text-gray-400">
+              اختیاری — فقط روز و ماه (بدون سال)
             </p>
           </div>
 
@@ -464,7 +563,11 @@ const UserProfile: React.FC = () => {
             )}
           </div>
 
-          <Button variant="primary" type="submit">
+          <Button
+            variant="primary"
+            type="submit"
+            disabled={updateProfileMutation.isPending}
+          >
             {updateProfileMutation.isPending ? "در حال ذخیره..." : "ذخیره"}
           </Button>
         </form>
@@ -508,7 +611,7 @@ const UserProfile: React.FC = () => {
             <label className="mb-1 block text-xs text-gray-500">آدرس</label>
             <textarea
               rows={3}
-              className="primary-input min-h-[5rem]"
+              className="primary-input min-h-20"
               {...registerBusiness("address", {
                 required: "الزامی",
                 minLength: { value: 10, message: "آدرس کامل‌تر وارد کنید" },
@@ -554,7 +657,11 @@ const UserProfile: React.FC = () => {
             </p>
           )}
 
-          <Button variant="primary" type="submit">
+          <Button
+            variant="primary"
+            type="submit"
+            disabled={updateBusinessMutation.isPending}
+          >
             {updateBusinessMutation.isPending
               ? "در حال ذخیره..."
               : "ذخیره تغییرات"}

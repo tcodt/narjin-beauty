@@ -9,32 +9,22 @@ import { useAddSlots } from "../../hooks/slots/useAddSlots";
 import { useGetServices } from "../../hooks/services/useGetServices";
 import { GetServicesItem } from "../../types/services";
 import PersianDayPicker from "../../components/PersianDayPicker/PersianDayPicker";
+import PersianTimePicker from "../../components/PersianTimePicker/PersianTimePicker";
 import Button from "../../components/Button/Button";
-import DatePicker from "react-multi-date-picker";
-import persian from "react-date-object/calendars/persian";
-import persian_fa from "react-date-object/locales/persian_fa";
-import TimePicker from "react-multi-date-picker/plugins/time_picker";
-import DateObject from "react-date-object";
 import { useThemeColor } from "../../context/ThemeColor";
-import { AxiosError } from "axios";
 import { useQueryClient } from "@tanstack/react-query";
 import { FaPencil, FaTrashCan } from "react-icons/fa6";
 import { useUpdateSlots } from "../../hooks/slots/useUpdateSlots";
 import { useRemoveSlots } from "../../hooks/slots/useRemoveSlots";
 import Dropdown from "../../components/Dropdown/Dropdown";
 import { motion } from "framer-motion";
-import {
-  formatTime,
-  toGregorianISO,
-  toPersianLabel,
-  todayPersian,
-} from "../../utils/date";
-import { LuCalendarDays, LuClock } from "react-icons/lu";
-import gregorian from "react-date-object/calendars/gregorian";
+import { formatTime, toPersianLabel } from "../../utils/date";
+import { isoToJalali, todayIso, toPersianDigits } from "../../utils/jalali";
 import { useHasFeature } from "../../hooks/subscription/useHasFeature";
 import FeatureLocked from "../../components/FeatureLocked/FeatureLocked";
 import Loading from "../../components/Loading/Loading";
 import { themeText } from "../../utils/themeClasses";
+import { parseApiError } from "../../utils/parseApiError";
 
 const parentVariants = {
   hidden: { opacity: 0 },
@@ -49,11 +39,20 @@ const childrenVariants = {
   visible: { opacity: 1, y: 0 },
 };
 
+const SLOTS_FEATURE_KEY = "appointment_management";
+
+const formatJalali = (iso: string) => {
+  const j = isoToJalali(iso);
+  if (!j) return iso;
+  return `${toPersianDigits(j.jy)}/${toPersianDigits(
+    String(j.jm).padStart(2, "0"),
+  )}/${toPersianDigits(String(j.jd).padStart(2, "0"))}`;
+};
+
 const AvailableTimes: React.FC = () => {
-  const [dateValue, setDateValue] = useState<DateObject | null>(todayPersian());
-  const [startTimeValue, setStartTimeValue] = useState<DateObject | null>(
-    new DateObject({ calendar: persian, locale: persian_fa }),
-  );
+  // 👇 string state
+  const [dateValue, setDateValue] = useState<string>(todayIso());
+  const [startTimeValue, setStartTimeValue] = useState<string>("09:00");
   const [selectedService, setSelectedService] = useState<number>(0);
   const [selectedSlot, setSelectedSlot] = useState<SlotsResponse | null>(null);
 
@@ -65,8 +64,8 @@ const AvailableTimes: React.FC = () => {
     "all" | "available" | "unavailable"
   >("all");
 
-  // کلید را با feature.key واقعی API عوض کن اگر فرق داشت
-  const { hasFeature, isLoading: featureLoading } = useHasFeature("time_slots");
+  const { hasFeature, isLoading: featureLoading } =
+    useHasFeature(SLOTS_FEATURE_KEY);
 
   const { data: slots, isPending, isError } = useGetSlots();
   const addSlotMutation = useAddSlots();
@@ -75,30 +74,6 @@ const AvailableTimes: React.FC = () => {
   const { data: services } = useGetServices();
   const { themeColor } = useThemeColor();
   const queryClient = useQueryClient();
-
-  const handleChangeDate = (val: DateObject | null) => {
-    setDateValue(val);
-  };
-
-  const handleChangeTime = (date: DateObject | null) => {
-    setStartTimeValue(date);
-  };
-
-  const parseError = (err: unknown, fallback: string) => {
-    const ax = err as AxiosError<Record<string, unknown> | string[]>;
-    const data = ax.response?.data;
-    if (Array.isArray(data) && data[0]) return String(data[0]);
-    if (data && typeof data === "object") {
-      if (typeof (data as { detail?: string }).detail === "string") {
-        return (data as { detail: string }).detail;
-      }
-      const first = Object.values(data).find(
-        (v) => Array.isArray(v) && v[0],
-      ) as string[] | undefined;
-      if (first?.[0]) return String(first[0]);
-    }
-    return fallback;
-  };
 
   const handleAddSlot = (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,17 +87,10 @@ const AvailableTimes: React.FC = () => {
       return;
     }
 
-    const dateStr = toGregorianISO(dateValue);
-    const hour = startTimeValue.hour ?? 0;
-    const minute = startTimeValue.minute ?? 0;
-    const startTimeStr = `${String(hour).padStart(2, "0")}:${String(
-      minute,
-    ).padStart(2, "0")}:00`;
-
     const payload = {
       service_id: selectedService,
-      date: dateStr,
-      start_time: startTimeStr,
+      date: dateValue, // already "YYYY-MM-DD"
+      start_time: `${startTimeValue}:00`, // "HH:mm" → "HH:mm:ss"
       is_available: isAvailable,
     };
 
@@ -134,13 +102,13 @@ const AvailableTimes: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ["slots"] });
         queryClient.invalidateQueries({ queryKey: ["available-times"] });
         setIsAddOpen(false);
-        setDateValue(todayPersian());
+        setDateValue(todayIso());
+        setStartTimeValue("09:00");
         setSelectedService(0);
         setIsAvailable(true);
       },
       onError: (err) => {
-        toast.error(parseError(err, "خطا در افزودن زمان"), { id: toastId });
-        console.error("Failed to add slot", err);
+        toast.error(parseApiError(err), { id: toastId });
       },
     });
   };
@@ -150,32 +118,12 @@ const AvailableTimes: React.FC = () => {
     setSelectedService(slot.service || 0);
     setIsAvailable(!!slot.is_available);
 
-    try {
-      const [y, m, d] = slot.date.split("-").map(Number);
-      if (y && m && d) {
-        const g = new DateObject({
-          calendar: gregorian,
-          year: y,
-          month: m,
-          day: d,
-        });
-        setDateValue(g.convert(persian).setLocale(persian_fa));
-      }
-    } catch {
-      setDateValue(todayPersian());
-    }
+    // date: already "YYYY-MM-DD"
+    setDateValue(slot.date || todayIso());
 
-    try {
-      const [hh, mm] = String(slot.start_time).split(":").map(Number);
-      const t = new DateObject({ calendar: persian, locale: persian_fa });
-      t.hour = hh || 0;
-      t.minute = mm || 0;
-      setStartTimeValue(t);
-    } catch {
-      setStartTimeValue(
-        new DateObject({ calendar: persian, locale: persian_fa }),
-      );
-    }
+    // time: normalize "HH:mm:ss" or "HH:mm" → "HH:mm"
+    const hhmm = String(slot.start_time ?? "09:00").slice(0, 5);
+    setStartTimeValue(/^\d{2}:\d{2}$/.test(hhmm) ? hhmm : "09:00");
 
     setIsUpdateOpen(true);
   };
@@ -184,21 +132,15 @@ const AvailableTimes: React.FC = () => {
     e.preventDefault();
     if (!selectedSlot) return;
 
-    const dateStr = dateValue ? toGregorianISO(dateValue) : selectedSlot.date;
-
-    const startTimeStr = startTimeValue
-      ? `${String(startTimeValue.hour).padStart(2, "0")}:${String(
-          startTimeValue.minute,
-        ).padStart(2, "0")}:00`
-      : selectedSlot.start_time;
-
     updateSlotMutation.mutate(
       {
         id: selectedSlot.id,
         updateSlot: {
           service_id: selectedService || selectedSlot.service,
-          date: dateStr,
-          start_time: startTimeStr,
+          date: dateValue || selectedSlot.date,
+          start_time: startTimeValue
+            ? `${startTimeValue}:00`
+            : selectedSlot.start_time,
           is_available: isAvailable,
         },
       },
@@ -210,7 +152,7 @@ const AvailableTimes: React.FC = () => {
           setSelectedSlot(null);
         },
         onError: (err) => {
-          toast.error(parseError(err, "خطا در بروزرسانی زمان"));
+          toast.error(parseApiError(err));
         },
       },
     );
@@ -224,7 +166,7 @@ const AvailableTimes: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ["slots"] });
       },
       onError: (err) => {
-        toast.error(parseError(err, "خطا در حذف زمان"), { id: slotId });
+        toast.error(parseApiError(err), { id: slotId });
       },
     });
   };
@@ -249,9 +191,6 @@ const AvailableTimes: React.FC = () => {
 
   const freeSlots = slots?.filter((s) => s.is_available);
 
-  const persianPreview = dateValue ? dateValue.format("YYYY/MM/DD") : "—";
-  const gregorianPreview = dateValue ? toGregorianISO(dateValue) : "—";
-
   if (featureLoading) return <Loading />;
 
   if (!hasFeature) {
@@ -265,6 +204,7 @@ const AvailableTimes: React.FC = () => {
 
   return (
     <section className="space-y-6 pb-10">
+      {/* ==================== ADD MODAL ==================== */}
       <CustomModal
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
@@ -272,66 +212,29 @@ const AvailableTimes: React.FC = () => {
       >
         <form onSubmit={handleAddSlot} className="space-y-4">
           <p className="rounded-xl bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
-            تاریخ را شمسی انتخاب کنید؛ برای سرور به‌صورت میلادی (`YYYY-MM-DD`)
+            تاریخ را شمسی انتخاب کنید؛ برای سرور به‌صورت میلادی (YYYY-MM-DD)
             ذخیره می‌شود.
           </p>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
-              تاریخ (شمسی)
-            </label>
-            <PersianDayPicker
-              value={dateValue}
-              onChange={handleChangeDate}
-              buttonLabel={
-                dateValue ? `تاریخ: ${persianPreview}` : "انتخاب تاریخ"
-              }
-              buttonIcon={
-                <LuCalendarDays size={18} className="text-emerald-600" />
-              }
-              bgColor="bg-white dark:bg-gray-700"
-              textColor="gray-700"
-              selectedRed={false}
-            />
-            <p className="mt-1.5 textarea-xs text-gray-400">
-              شمسی: <b>{persianPreview}</b>
-              {" · "}
-              API:{" "}
-              <span className="font-mono" dir="ltr">
-                {gregorianPreview}
-              </span>
-            </p>
-          </div>
+          <PersianDayPicker
+            variant="inline"
+            label="تاریخ"
+            value={dateValue}
+            onChange={setDateValue}
+            helperText={
+              dateValue
+                ? `شمسی: ${formatJalali(dateValue)} · میلادی: ${dateValue}`
+                : "یک روز را از تقویم انتخاب کنید"
+            }
+          />
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
-              ساعت شروع
-            </label>
-            <DatePicker
-              calendar={persian}
-              format="HH:mm"
-              locale={persian_fa}
-              value={startTimeValue}
-              disableDayPicker
-              plugins={[<TimePicker hideSeconds key="tp" />]}
-              calendarPosition="bottom-right"
-              onChange={handleChangeTime}
-              render={(_value, openCalendar) => (
-                <button
-                  type="button"
-                  onClick={openCalendar}
-                  className="flex w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-base font-medium text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                >
-                  <LuClock size={18} className="text-emerald-600" />
-                  {startTimeValue
-                    ? `${String(startTimeValue.hour).padStart(2, "0")}:${String(
-                        startTimeValue.minute,
-                      ).padStart(2, "0")}`
-                    : "انتخاب ساعت"}
-                </button>
-              )}
-            />
-          </div>
+          <PersianTimePicker
+            variant="inline"
+            label="ساعت شروع"
+            value={startTimeValue}
+            onChange={setStartTimeValue}
+            clearable={false}
+          />
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -370,6 +273,7 @@ const AvailableTimes: React.FC = () => {
         </form>
       </CustomModal>
 
+      {/* ==================== UPDATE MODAL ==================== */}
       <CustomModal
         isOpen={isUpdateOpen}
         onClose={() => {
@@ -411,62 +315,25 @@ const AvailableTimes: React.FC = () => {
               در حال ویرایش زمان #{selectedSlot.id}
             </p>
 
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">
-                تاریخ (شمسی)
-              </label>
-              <PersianDayPicker
-                value={dateValue}
-                onChange={handleChangeDate}
-                buttonLabel={
-                  dateValue
-                    ? `تاریخ: ${dateValue.format("YYYY/MM/DD")}`
-                    : "انتخاب تاریخ"
-                }
-                buttonIcon={
-                  <LuCalendarDays size={18} className="text-emerald-600" />
-                }
-                bgColor="bg-white dark:bg-gray-700"
-                textColor="gray-700"
-                selectedRed={false}
-              />
-              <p className="mt-1 textarea-xs text-gray-400">
-                API:{" "}
-                <span className="font-mono" dir="ltr">
-                  {dateValue ? toGregorianISO(dateValue) : "—"}
-                </span>
-              </p>
-            </div>
+            <PersianDayPicker
+              variant="inline"
+              label="تاریخ"
+              value={dateValue}
+              onChange={setDateValue}
+              helperText={
+                dateValue
+                  ? `شمسی: ${formatJalali(dateValue)} · میلادی: ${dateValue}`
+                  : undefined
+              }
+            />
 
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">
-                ساعت شروع
-              </label>
-              <DatePicker
-                calendar={persian}
-                format="HH:mm"
-                locale={persian_fa}
-                value={startTimeValue}
-                disableDayPicker
-                plugins={[<TimePicker hideSeconds key="tp-edit" />]}
-                calendarPosition="bottom-right"
-                onChange={handleChangeTime}
-                render={(_value, openCalendar) => (
-                  <button
-                    type="button"
-                    onClick={openCalendar}
-                    className="flex w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  >
-                    <LuClock size={18} className="text-emerald-600" />
-                    {startTimeValue
-                      ? `${String(startTimeValue.hour).padStart(2, "0")}:${String(
-                          startTimeValue.minute,
-                        ).padStart(2, "0")}`
-                      : "انتخاب ساعت"}
-                  </button>
-                )}
-              />
-            </div>
+            <PersianTimePicker
+              variant="inline"
+              label="ساعت شروع"
+              value={startTimeValue}
+              onChange={setStartTimeValue}
+              clearable={false}
+            />
 
             <div>
               <label className="mb-1.5 block text-sm font-medium">سرویس</label>
@@ -512,6 +379,7 @@ const AvailableTimes: React.FC = () => {
         )}
       </CustomModal>
 
+      {/* ==================== DELETE MODAL ==================== */}
       <CustomModal
         isOpen={isDeleteOpen}
         onClose={() => setIsDeleteOpen(false)}
@@ -540,6 +408,7 @@ const AvailableTimes: React.FC = () => {
         )}
       </CustomModal>
 
+      {/* ==================== HEADER ==================== */}
       <div className="mt-8 flex items-center justify-between">
         <PageTitle title="زمان‌های در دسترس" />
         <Dropdown
@@ -558,6 +427,7 @@ const AvailableTimes: React.FC = () => {
         </p>
       )}
 
+      {/* ==================== SLOT LIST ==================== */}
       <div className="flex flex-col items-center p-2">
         {isPending && (
           <div className="mt-4">
@@ -565,30 +435,34 @@ const AvailableTimes: React.FC = () => {
           </div>
         )}
 
-        <div className="mb-6 flex items-center gap-4">
+        <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
           {(
             [
-              ["all", "همه", allSlotsCount],
-              ["available", "آزاد", availableSlotsCount],
-              ["unavailable", "رزرو شده", unavailableSlotsCount],
+              { key: "all" as const, label: "همه", count: allSlotsCount },
+              {
+                key: "available" as const,
+                label: "آزاد",
+                count: availableSlotsCount,
+              },
+              {
+                key: "unavailable" as const,
+                label: "رزرو شده",
+                count: unavailableSlotsCount,
+              },
             ] as const
-          ).map(([key, label, count]) => (
+          ).map(({ key, label, count }) => (
             <button
               key={key}
               type="button"
-              className={`relative border-b-2 p-1 text-xs font-medium ${
-                filteredSlots === key
-                  ? key === "available"
-                    ? "border-green-500 text-green-500"
-                    : key === "unavailable"
-                      ? "border-red-500 text-red-500"
-                      : `${themeText[themeColor]} border-current`
-                  : "border-transparent text-gray-500 dark:text-gray-200"
-              }`}
               onClick={() => setFilteredSlots(key)}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                filteredSlots === key
+                  ? "bg-gray-800 text-white dark:bg-white dark:text-gray-900"
+                  : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+              }`}
             >
               <span
-                className={`absolute -top-3 -right-1 flex h-4 w-6 items-center justify-center rounded-full text-[10px] text-white ${
+                className={`-mt-1 flex h-4 w-6 items-center justify-center rounded-full text-[10px] text-white ${
                   key === "available"
                     ? "bg-green-500"
                     : key === "unavailable"
@@ -626,11 +500,11 @@ const AvailableTimes: React.FC = () => {
                 <p className="mt-1 text-lg font-bold text-gray-900 dark:text-gray-100">
                   {formatTime(slot.start_time)}
                 </p>
-                <p className="mt-0.5 textarea-xs text-gray-400" dir="ltr">
+                <p className="mt-0.5 text-xs text-gray-400" dir="ltr">
                   {slot.date}
                 </p>
                 <span
-                  className={`mt-2 inline-block rounded-full px-2.5 py-0.5 textarea-xs font-semibold ${
+                  className={`mt-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                     slot.is_available
                       ? "bg-emerald-500 text-white"
                       : "bg-rose-500 text-white"

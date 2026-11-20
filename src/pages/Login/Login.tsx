@@ -6,13 +6,14 @@ import { SubmitHandler, useForm } from "react-hook-form";
 import { IoEye, IoEyeOff } from "react-icons/io5";
 import { IoIosLock } from "react-icons/io";
 import { useLogin } from "../../hooks/accounts/login/useLogin";
-import { AxiosError } from "axios";
 import toast from "react-hot-toast";
 import { LoginType } from "../../types/login";
 import { useThemeColor } from "../../context/ThemeColor";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext";
 import { useUserType } from "../../context/UserTypeContext";
+import { parseApiError } from "../../utils/parseApiError";
+import { useRateLimitGuard } from "../../hooks/useRateLimitGuard";
 
 const Login: React.FC = () => {
   const {
@@ -29,12 +30,15 @@ const Login: React.FC = () => {
   const queryClient = useQueryClient();
   const { login: loginContext } = useAuth();
   const { setUserType } = useUserType();
+  const rateLimit = useRateLimitGuard();
 
   const toggle = useCallback(() => {
     setIsVisible((prev) => !prev);
   }, []);
 
   const handleLogin: SubmitHandler<LoginType> = (data) => {
+    if (rateLimit.isLimited) return;
+
     const toastId = toast.loading("در حال ورود...");
 
     loginMutation.mutate(data, {
@@ -46,24 +50,18 @@ const Login: React.FC = () => {
         const isOwner = !!res.user?.is_owner;
         const joined = localStorage.getItem("joinedBusiness");
 
-        // نقش را از API می‌گیریم، نه فقط از localStorage
         if (isOwner) {
           setUserType("owner");
           navigate("/dashboard", { replace: true });
           return;
         }
 
-        // مشتری
         setUserType("customer");
         navigate(joined ? "/home" : "/join-salon", { replace: true });
       },
       onError: (error) => {
-        const axiosError = error as AxiosError;
-        if (axiosError.response?.status === 401) {
-          toast.error("شماره تلفن یا رمز عبور اشتباه است!", { id: toastId });
-        } else {
-          toast.error("خطای سرور، لطفاً بعداً تلاش کنید", { id: toastId });
-        }
+        rateLimit.triggerFromError(error);
+        toast.error(parseApiError(error), { id: toastId });
       },
     });
   };
@@ -76,7 +74,6 @@ const Login: React.FC = () => {
   return (
     <section className="min-h-screen w-full bg-gray-50 dark:bg-gray-900 overflow-y-auto">
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-8 sm:px-6">
-        {/* Brand */}
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="mb-4 rounded-full bg-white p-2 shadow-md dark:bg-gray-800">
             <img
@@ -95,14 +92,12 @@ const Login: React.FC = () => {
           </p>
         </div>
 
-        {/* Card */}
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-lg dark:border-gray-700 dark:bg-gray-800 sm:p-8">
           <form
             onSubmit={handleSubmit(handleLogin)}
             className="flex flex-col gap-5"
             noValidate
           >
-            {/* Phone */}
             <div className="space-y-1.5">
               <label
                 htmlFor="phone_number"
@@ -158,7 +153,6 @@ const Login: React.FC = () => {
               )}
             </div>
 
-            {/* Password */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label
@@ -219,9 +213,27 @@ const Login: React.FC = () => {
               )}
             </div>
 
-            <Button type="submit" disabled={loginMutation.isPending}>
-              {loginMutation.isPending ? "در حال ورود..." : "ورود به حساب"}
+            <Button
+              type="submit"
+              disabled={loginMutation.isPending || rateLimit.isLimited}
+            >
+              {rateLimit.isLimited
+                ? `لطفاً ${rateLimit.secondsLeft} ثانیه صبر کنید`
+                : loginMutation.isPending
+                  ? "در حال ورود..."
+                  : "ورود به حساب"}
             </Button>
+
+            {rateLimit.isLimited && (
+              <p
+                className="text-center text-sm text-amber-600 dark:text-amber-400"
+                role="status"
+                aria-live="polite"
+              >
+                تعداد درخواست‌ها زیاد است. پس از پایان شمارش می‌توانید دوباره
+                تلاش کنید.
+              </p>
+            )}
           </form>
 
           <div className="mt-6 flex items-center gap-3">

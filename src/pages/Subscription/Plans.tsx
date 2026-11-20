@@ -21,7 +21,7 @@ import {
   usePlans,
   useSubscriptionStatus,
 } from "../../hooks/subscription/useSubscription";
-import { canUsePanel } from "../../hooks/subscription/useHasFeature";
+import { canUsePanel } from "../../hooks/subscription/useFeature";
 import PageTitle from "../../components/PageTitle/PageTitle";
 import { useThemeColor } from "../../context/ThemeColor";
 import {

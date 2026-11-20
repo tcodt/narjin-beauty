@@ -1,10 +1,9 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
   FaCrown,
   FaFileInvoiceDollar,
   FaQrcode,
   FaStore,
-  FaUsers,
 } from "react-icons/fa";
 import { GiBeard } from "react-icons/gi";
 import {
@@ -26,24 +25,20 @@ import { logoMap } from "../../utils/logoMap";
 import { motion } from "framer-motion";
 import { themeText } from "../../utils/themeClasses";
 import { FiCreditCard, FiFileText, FiUsers } from "react-icons/fi";
+import { FEATURE_ROUTE_MAP } from "../../constants/featureRoutes";
+import { useFeatures } from "../../hooks/subscription/useFeature";
 
 const parentVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: {
-      staggerChildren: 0.2,
-      delayChildren: 0.1,
-    },
+    transition: { staggerChildren: 0.12, delayChildren: 0.05 },
   },
 };
 
 const childrenVariants = {
-  hidden: { opacity: 0, x: 100 },
-  visible: {
-    opacity: 1,
-    x: 0,
-  },
+  hidden: { opacity: 0, x: 80 },
+  visible: { opacity: 1, x: 0 },
 };
 
 type NavItem = {
@@ -53,7 +48,6 @@ type NavItem = {
   requiredPermission: string | null;
   customerOnly?: boolean;
   ownerOnly?: boolean;
-  /** فقط سوپریوزر پلتفرم (نه صاحب سالن) */
   platformOnly?: boolean;
 };
 
@@ -64,162 +58,168 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const { themeColor } = useThemeColor();
   const { role, isBusinessOwner, hasPermission, isSuperuser } = useAcl();
+  const { hasFeature, panelOk } = useFeatures();
 
   useEffect(() => {
     setIsSidebarOpen(false);
   }, [location.pathname, setIsSidebarOpen]);
 
   const logoSrc = logoMap[themeColor] || "/images/logo-main.jpg";
-
   const isOwner = isBusinessOwner || role === "admin";
 
-  /**
-   * لیست کاربران پلتفرم فقط برای سوپریوزر.
-   * صاحب سالن معمولی → 403 از بک‌اند می‌گیرد؛ اصلاً نشان نده.
-   */
-  const canSeeUsers = isSuperuser;
+  const navItems: NavItem[] = useMemo(
+    () => [
+      {
+        icon: <MdHome size={20} />,
+        label: "صفحه اصلی",
+        path: "/home",
+        requiredPermission: null,
+        customerOnly: true,
+      },
+      {
+        icon: <MdSpaceDashboard size={20} />,
+        label: "داشبورد",
+        path: "/dashboard",
+        requiredPermission: null,
+      },
+      {
+        icon: <FaUsersGear size={20} />,
+        label: "مدیریت آرایشگران",
+        path: "/manage-employees",
+        requiredPermission: "employee_list",
+        ownerOnly: true,
+      },
+      {
+        icon: <MdSpaceDashboard size={20} />,
+        label: "خدمات آرایشگاه",
+        path: "/manage-services",
+        requiredPermission: "service_list",
+        ownerOnly: true,
+      },
+      {
+        icon: <HiClipboardList size={20} />,
+        label: "لیست رزرو ها",
+        path: "/appointments-list",
+        requiredPermission: null,
+        customerOnly: true,
+      },
+      {
+        icon: <HiClipboardList size={20} />,
+        label: "مدیریت نوبت‌ها",
+        path: "/manage-appointments",
+        requiredPermission: null,
+        ownerOnly: true,
+      },
+      {
+        icon: <FaSliders size={20} />,
+        label: "بنر ها",
+        path: "/sliders",
+        requiredPermission: "slider_list",
+        ownerOnly: true,
+      },
+      {
+        icon: <GiBeard size={20} />,
+        label: "پکیج ها",
+        path: "/packages",
+        requiredPermission: "packages_list",
+        ownerOnly: true,
+      },
+      {
+        icon: <TbCalendarTime size={20} />,
+        label: "ساعات کاری و تعطیلات",
+        path: "/working-time",
+        requiredPermission: null,
+        ownerOnly: true,
+      },
+      {
+        icon: <TbCalendarTime size={20} />,
+        label: "زمان های در دسترس",
+        path: "/available-times",
+        requiredPermission: "time_slot-list",
+        ownerOnly: true,
+      },
+      {
+        icon: <FaFileInvoiceDollar size={20} />,
+        label: "پرداخت کارت‌به‌کارت",
+        path: "/submit-manual-payment",
+        requiredPermission: null,
+        customerOnly: true,
+      },
+      {
+        icon: <FiUsers className="h-5 w-5" />,
+        label: "مشتریان",
+        path: "/customers-list",
+        requiredPermission: "customers-list",
+        ownerOnly: true,
+      },
+      {
+        icon: <FiCreditCard className="h-5 w-5" />,
+        label: "کارت‌های بانکی",
+        path: "/bank-cards",
+        requiredPermission: "bank_cards",
+        ownerOnly: true,
+      },
+      {
+        icon: <FiFileText className="h-5 w-5" />,
+        label: "فیش‌های پرداخت",
+        path: "/manual-payments",
+        requiredPermission: "payments_record",
+        ownerOnly: true,
+      },
+      {
+        icon: <FaQrcode size={20} />,
+        label: "کد QR رزرو",
+        path: "/booking-qr",
+        requiredPermission: null,
+        ownerOnly: true,
+      },
+      {
+        icon: <FaCrown size={20} />,
+        label: "پلن ها و اشتراک",
+        path: "/plans",
+        requiredPermission: null,
+        ownerOnly: true,
+      },
+      {
+        icon: <FaStore size={20} />,
+        label: "لوگوی سالن",
+        path: "/business-logo",
+        requiredPermission: null,
+        ownerOnly: true,
+      },
+      {
+        icon: <MdPerson size={20} />,
+        label: "پروفایل",
+        path: "/user-profile",
+        requiredPermission: null,
+      },
+    ],
+    [],
+  );
 
-  const navItems: NavItem[] = [
-    {
-      icon: <MdHome size={20} />,
-      label: "صفحه اصلی",
-      path: "/home",
-      requiredPermission: null,
-      customerOnly: true,
-    },
-    {
-      icon: <MdSpaceDashboard size={20} />,
-      label: "داشبورد",
-      path: "/dashboard",
-      requiredPermission: null,
-    },
-    {
-      icon: <FaUsersGear size={20} />,
-      label: "مدیریت آرایشگران",
-      path: "/manage-employees",
-      requiredPermission: "employee_list",
-      ownerOnly: true,
-    },
-    {
-      icon: <MdSpaceDashboard size={20} />,
-      label: "خدمات آرایشگاه",
-      path: "/manage-services",
-      requiredPermission: "service_list",
-      ownerOnly: true,
-    },
-    {
-      icon: <FaUsers size={20} />,
-      label: "کاربران",
-      path: "/users",
-      requiredPermission: "user_list",
-      platformOnly: true,
-    },
-    {
-      icon: <HiClipboardList size={20} />,
-      label: "لیست رزرو ها",
-      path: "/appointments-list",
-      requiredPermission: null,
-      customerOnly: true,
-    },
-    {
-      icon: <HiClipboardList size={20} />,
-      label: "مدیریت نوبت‌ها",
-      path: "/manage-appointments",
-      requiredPermission: null,
-      ownerOnly: true,
-    },
-    {
-      icon: <FaSliders size={20} />,
-      label: "بنر ها",
-      path: "/sliders",
-      requiredPermission: "slider_list",
-      ownerOnly: true,
-    },
-    {
-      icon: <GiBeard size={20} />,
-      label: "پکیج ها",
-      path: "/packages",
-      requiredPermission: "packages_list",
-      ownerOnly: true,
-    },
-    // کیف پول حذف شد — endpoint /payments/wallet/ دیگر وجود ندارد
-    {
-      icon: <TbCalendarTime size={20} />,
-      label: "زمان های در دسترس",
-      path: "/available-times",
-      requiredPermission: "time_slot-list",
-      ownerOnly: true,
-    },
-    {
-      icon: <FaFileInvoiceDollar size={20} />,
-      label: "پرداخت کارت‌به‌کارت",
-      path: "/submit-manual-payment",
-      requiredPermission: null,
-      customerOnly: true,
-    },
-    {
-      icon: <FiUsers className="h-5 w-5" />,
-      label: "مشتریان",
-      path: "/customers-list",
-      requiredPermission: "customers-list",
-      ownerOnly: true,
-    },
-    {
-      icon: <FiCreditCard className="h-5 w-5" />,
-      label: "کارت‌های بانکی",
-      path: "/bank-cards",
-      requiredPermission: "bank_cards",
-      ownerOnly: true,
-    },
-    {
-      icon: <FiFileText className="h-5 w-5" />,
-      label: "فیش‌های پرداخت",
-      path: "/manual-payments",
-      requiredPermission: "payments_record",
-      ownerOnly: true,
-    },
-    {
-      icon: <FaQrcode size={20} />,
-      label: "کد QR رزرو",
-      path: "/booking-qr",
-      requiredPermission: null,
-      ownerOnly: true,
-    },
-    {
-      icon: <FaCrown size={20} />,
-      label: "پلن ها و اشتراک",
-      path: "/plans",
-      requiredPermission: null,
-      ownerOnly: true,
-    },
-    {
-      icon: <FaStore size={20} />,
-      label: "لوگوی سالن",
-      path: "/business-logo",
-      requiredPermission: null,
-      ownerOnly: true,
-    },
-    {
-      icon: <MdPerson size={20} />,
-      label: "پروفایل",
-      path: "/user-profile",
-      requiredPermission: null,
-    },
-  ];
+  const visibleNavItems = useMemo(() => {
+    return navItems.filter((item) => {
+      if (item.customerOnly && isOwner) return false;
+      if (item.ownerOnly && !isOwner) return false;
 
-  const filteredNavItems = navItems.filter((item) => {
-    if (item.customerOnly && isOwner) return false;
-    if (item.ownerOnly && !isOwner) return false;
+      // فقط سوپریوزر پلتفرم
+      if (item.platformOnly) return isSuperuser;
 
-    if (item.platformOnly) {
-      // فقط سوپریوزر پلتفرم — صاحب سالن هرگز نمی‌بیند
-      return canSeeUsers;
-    }
+      // ACL
+      if (item.requiredPermission) {
+        if (!isOwner && !hasPermission(item.requiredPermission)) return false;
+      }
 
-    if (!item.requiredPermission) return true;
-    if (isOwner) return true;
-    return hasPermission(item.requiredPermission);
-  });
+      // Feature از بک‌اند
+      const featureKey = FEATURE_ROUTE_MAP[item.path];
+      if (featureKey) {
+        if (!panelOk) return false;
+        return hasFeature(featureKey);
+      }
+
+      return true;
+    });
+  }, [navItems, isOwner, isSuperuser, hasPermission, panelOk, hasFeature]);
 
   return (
     <>
@@ -248,7 +248,6 @@ const Sidebar: React.FC = () => {
         }
       `}</style>
 
-      {/* Overlay */}
       {isSidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
@@ -263,7 +262,6 @@ const Sidebar: React.FC = () => {
           isSidebarOpen ? "translate-x-0" : "translate-x-full"
         } md:translate-x-0`}
       >
-        {/* Header */}
         <div className="flex items-center gap-3 border-b border-gray-100 p-4 dark:border-gray-800">
           <img
             src={logoSrc}
@@ -278,7 +276,6 @@ const Sidebar: React.FC = () => {
           </div>
         </div>
 
-        {/* Nav */}
         <nav className="sidebar-scroll flex-1 overflow-y-auto p-3">
           <motion.ul
             variants={parentVariants}
@@ -286,7 +283,7 @@ const Sidebar: React.FC = () => {
             animate="visible"
             className="space-y-1"
           >
-            {filteredNavItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const active =
                 location.pathname === item.path ||
                 location.pathname.startsWith(item.path + "/");
@@ -325,7 +322,6 @@ const Sidebar: React.FC = () => {
           </motion.ul>
         </nav>
 
-        {/* Footer */}
         <div className="space-y-2 border-t border-gray-100 p-3 dark:border-gray-800">
           <button
             type="button"

@@ -7,6 +7,7 @@ import {
 } from "../../services/appointments/businessAppointments";
 import { UpdateAppointmentBusinessPayload } from "../../types/appointments";
 import { useAuth } from "../../context/AuthContext";
+import { parseApiError } from "../../utils/parseApiError";
 
 export const useBusinessAppointments = () => {
   const { isAuthenticated } = useAuth();
@@ -48,6 +49,8 @@ export const useUpdateBusinessAppointmentStatus = () => {
             : "وضعیت به‌روز شد";
       toast.success(label);
     },
-    onError: () => toast.error("خطا در به‌روزرسانی نوبت"),
+    onError: (error) => {
+      toast.error(parseApiError(error));
+    },
   });
 };

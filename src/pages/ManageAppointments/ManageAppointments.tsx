@@ -11,7 +11,6 @@ import {
   LuScissors,
 } from "react-icons/lu";
 import PageTitle from "../../components/PageTitle/PageTitle";
-import Dots from "../../components/Dots/Dots";
 import Button from "../../components/Button/Button";
 import { useThemeColor } from "../../context/ThemeColor";
 import { useGetBusinessAppointments } from "../../hooks/appointments/useGetBusinessAppointments";
@@ -23,8 +22,6 @@ import EmptyState from "../../components/EmptyState/EmptyState";
 import { IoCalendarOutline } from "react-icons/io5";
 import SearchBar from "../../components/SearchBar/SearchBar";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
-import { useHasFeature } from "../../hooks/subscription/useHasFeature";
-import FeatureLocked from "../../components/FeatureLocked/FeatureLocked";
 
 type FilterKey = "today" | "pending" | "confirmed" | "canceled" | "all";
 
@@ -92,13 +89,8 @@ const ManageAppointments: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebouncedValue(searchQuery, 250);
 
-  // کلید را با feature.key واقعی API عوض کن اگر فرق داشت
-  const { hasFeature, isLoading: featureLoading } =
-    useHasFeature("appointments");
-
   const {
     data: appointments = [],
-    isLoading,
     isError,
     error,
     refetch,
@@ -178,23 +170,6 @@ const ManageAppointments: React.FC = () => {
       return name.includes(q) || phone.includes(q) || service.includes(q);
     });
   }, [sorted, debouncedSearch]);
-
-  if (featureLoading || isLoading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <Dots />
-      </div>
-    );
-  }
-
-  if (!hasFeature) {
-    return (
-      <FeatureLocked
-        title="مدیریت نوبت‌ها در پلن شما فعال نیست"
-        description="برای مشاهده و تأیید نوبت‌های مشتریان، پلن مناسب را از صفحه پلن‌ها تهیه کنید."
-      />
-    );
-  }
 
   if (isError) {
     return (

@@ -2,11 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import { AxiosError } from "axios";
-import { LuCalendarClock, LuStore, LuCalendarDays } from "react-icons/lu";
-import DateObject from "react-date-object";
-import persian from "react-date-object/calendars/persian";
-import persian_fa from "react-date-object/locales/persian_fa";
+import { LuCalendarClock, LuStore } from "react-icons/lu";
 
 import Button from "../../components/Button/Button";
 import PageTitle from "../../components/PageTitle/PageTitle";
@@ -17,16 +13,12 @@ import { useJoinedBusiness } from "../../context/JoinedBusinessContext";
 import { useUserType } from "../../context/UserTypeContext";
 import { useGetServices } from "../../hooks/services/useGetServices";
 import { useGetAvailableTimes } from "../../hooks/slots/useGetAvailableTimes";
-import { useGetAvailableDates } from "../../hooks/slots/useGetAvailableDates";
 import { useAddAppointment } from "../../hooks/appointments/useAddAppointment";
 import { getEmployeeLabel, GetEmployeesItem } from "../../types/employees";
-import {
-  formatTime,
-  toGregorianISO,
-  toPersianLabel,
-  todayPersian,
-} from "../../utils/date";
+import { formatTime, toPersianLabel } from "../../utils/date";
+import { isoToJalali, todayIso, toPersianDigits } from "../../utils/jalali";
 import { themeText } from "../../utils/themeClasses";
+import { parseApiError } from "../../utils/parseApiError";
 
 function toPositiveInt(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value) && value > 0) {
@@ -37,6 +29,11 @@ function toPositiveInt(value: unknown): number | null {
     if (Number.isFinite(n) && n > 0) return Math.trunc(n);
   }
   return null;
+}
+
+/** YYYY-MM-DD only — what the API expects */
+function isIsoDate(value: string | null | undefined): value is string {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
 function employeesFromService(
@@ -66,27 +63,18 @@ function employeesFromService(
     .filter(Boolean) as GetEmployeesItem[];
 }
 
-function parseApiError(error: unknown, fallback: string): string {
-  const ax = error as AxiosError<Record<string, unknown> | string>;
-  const data = ax.response?.data;
-  if (typeof data === "string" && data.trim()) return data;
-  if (data && typeof data === "object") {
-    if (typeof data.detail === "string") return data.detail;
-    if (typeof (data as { message?: string }).message === "string") {
-      return (data as { message: string }).message;
-    }
-    const first = Object.values(data).find((v) => Array.isArray(v) && v[0]) as
-      | string[]
-      | undefined;
-    if (first?.[0]) return String(first[0]);
-  }
-  return fallback;
-}
+const formatJalali = (iso: string) => {
+  const j = isoToJalali(iso);
+  if (!j) return iso;
+  return `${toPersianDigits(j.jy)}/${toPersianDigits(
+    String(j.jm).padStart(2, "0"),
+  )}/${toPersianDigits(String(j.jd).padStart(2, "0"))}`;
+};
 
 const Reserve: React.FC = () => {
   const [serviceId, setServiceId] = useState<number | null>(null);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
-  const [dateValue, setDateValue] = useState<DateObject | null>(todayPersian());
+  const [dateValue, setDateValue] = useState<string>(todayIso());
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
 
   const navigate = useNavigate();
@@ -97,8 +85,8 @@ const Reserve: React.FC = () => {
   const isCustomer = userType !== "owner";
   const randomCode = (joinedBusiness?.random_code ?? "").trim();
 
-  const selectedDate = toGregorianISO(dateValue);
-  const selectedDatePersian = dateValue ? dateValue.format("YYYY/MM/DD") : "—";
+  const selectedDate = isIsoDate(dateValue) ? dateValue : null;
+  const selectedDatePersian = selectedDate ? formatJalali(selectedDate) : "—";
 
   const {
     data: services = [],
@@ -106,15 +94,13 @@ const Reserve: React.FC = () => {
     isError: servicesError,
   } = useGetServices();
 
+  // Only fetch when both date + service are valid — no extra client filters
   const {
     data: availableSlots = [],
     isLoading: slotsLoading,
     isError: slotsError,
     error: slotsErrorObj,
   } = useGetAvailableTimes(selectedDate, serviceId);
-
-  const { data: availableDates = [], isFetching: datesFetching } =
-    useGetAvailableDates(serviceId, 60);
 
   const addAppointmentMutation = useAddAppointment();
 
@@ -157,13 +143,18 @@ const Reserve: React.FC = () => {
     setSelectedSlotId(null);
   }, [serviceId, selectedDate]);
 
-  const freeSlots = useMemo(
-    () =>
-      availableSlots.filter(
-        (s) => s.is_available !== false && toPositiveInt(s.id) != null,
-      ),
-    [availableSlots],
-  );
+  /**
+   * Backend GET /business/available-times/?date=&service_id= owns availability.
+   * Only drop rows without a real primary key. Sort by start_time for UX.
+   */
+  const freeSlots = useMemo(() => {
+    return availableSlots
+      .filter((s) => toPositiveInt(s.id) != null)
+      .slice()
+      .sort((a, b) =>
+        String(a.start_time ?? "").localeCompare(String(b.start_time ?? "")),
+      );
+  }, [availableSlots]);
 
   const selectedSlot = useMemo(
     () => freeSlots.find((s) => s.id === selectedSlotId) ?? null,
@@ -207,6 +198,11 @@ const Reserve: React.FC = () => {
       return;
     }
 
+    if (!selectedDate) {
+      toast.error("تاریخ معتبر انتخاب نشده است");
+      return;
+    }
+
     const slotPk = toPositiveInt(selectedSlotId);
     if (slotPk == null) {
       toast.error("زمان معتبر انتخاب نشده است");
@@ -247,12 +243,11 @@ const Reserve: React.FC = () => {
           toast.success("رزرو با موفقیت ثبت شد");
           queryClient.invalidateQueries({ queryKey: ["appointments"] });
           queryClient.invalidateQueries({ queryKey: ["available-times"] });
-          queryClient.invalidateQueries({ queryKey: ["available-dates"] });
           queryClient.invalidateQueries({ queryKey: ["notifications"] });
           navigate("/appointments-list");
         },
         onError: (error: unknown) => {
-          toast.error(parseApiError(error, "ثبت رزرو ناموفق بود"));
+          toast.error(parseApiError(error));
         },
       },
     );
@@ -260,6 +255,7 @@ const Reserve: React.FC = () => {
 
   const canSubmit =
     !!serviceId &&
+    !!selectedDate &&
     toPositiveInt(selectedSlotId) != null &&
     !!selectedSlot &&
     (toPositiveInt(employeeId) != null ||
@@ -268,12 +264,8 @@ const Reserve: React.FC = () => {
     !addAppointmentMutation.isPending;
 
   const dateHelper = !serviceId
-    ? "ابتدا سرویس را انتخاب کنید تا روزهای دارای نوبت آزاد سبز شوند."
-    : datesFetching
-      ? "در حال پیدا کردن روزهای دارای زمان آزاد…"
-      : availableDates.length
-        ? `${availableDates.length} روز دارای زمان آزاد (سبز) در ۶۰ روز آینده.`
-        : "در ۶۰ روز آینده زمان آزادی برای این سرویس پیدا نشد.";
+    ? "ابتدا سرویس را انتخاب کنید."
+    : "تاریخ را انتخاب کنید؛ زمان‌های آزاد همان روز از سرور بارگذاری می‌شود.";
 
   return (
     <div className="mx-auto max-w-lg space-y-6 pb-10">
@@ -364,36 +356,28 @@ const Reserve: React.FC = () => {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
-            تاریخ نوبت (شمسی)
-          </label>
           <PersianDayPicker
+            variant="inline"
+            label="تاریخ نوبت"
             value={dateValue}
-            onChange={(val) => {
-              const next = Array.isArray(val) ? (val[0] ?? null) : val;
-              setDateValue(next);
+            onChange={(iso) => {
+              if (isIsoDate(iso)) {
+                setDateValue(iso);
+              }
               setSelectedSlotId(null);
             }}
-            buttonLabel={
-              dateValue ? `تاریخ: ${selectedDatePersian}` : "انتخاب تاریخ شمسی"
-            }
-            buttonIcon={
-              <LuCalendarDays size={18} className="text-emerald-600" />
-            }
-            bgColor="bg-white dark:bg-gray-700"
-            textColor="gray-700"
-            selectedRed={false}
-            minDate={new DateObject({ calendar: persian, locale: persian_fa })}
-            highlightedDates={availableDates}
-            lockToHighlighted={false}
+            min={todayIso()}
             helperText={dateHelper}
           />
-          <p className="mt-1.5 text-[11px] text-gray-400">
-            شمسی: <b>{selectedDatePersian}</b>
+          <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+            شمسی:{" "}
+            <b className="text-gray-700 dark:text-gray-200">
+              {selectedDatePersian}
+            </b>
             {" · "}
             API:{" "}
             <span className="font-mono" dir="ltr">
-              {selectedDate}
+              {selectedDate || "—"}
             </span>
           </p>
         </div>
@@ -405,8 +389,8 @@ const Reserve: React.FC = () => {
             <LuCalendarClock size={22} className="text-emerald-500" />
             زمان‌های آزاد
           </span>
-          {dateValue && (
-            <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+          {selectedDate && (
+            <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
               {selectedDatePersian}
             </span>
           )}
@@ -426,7 +410,7 @@ const Reserve: React.FC = () => {
           <div className="rounded-xl bg-rose-50 py-4 text-center text-sm text-rose-600 dark:bg-rose-950/40">
             <p>خطا در دریافت زمان‌های آزاد</p>
             <p className="mt-1 text-xs opacity-80">
-              {parseApiError(slotsErrorObj, "خطای سرور")}
+              {parseApiError(slotsErrorObj)}
             </p>
           </div>
         )}
@@ -437,7 +421,7 @@ const Reserve: React.FC = () => {
             <div className="rounded-xl bg-gray-50 py-6 text-center text-sm text-gray-500 dark:bg-gray-800/60">
               <p>برای «{selectedDatePersian}» زمان آزادی یافت نشد.</p>
               <p className="mt-2 text-xs text-gray-400">
-                روزهای سبز در تقویم دارای زمان آزاد هستند.
+                تاریخ دیگری را امتحان کنید یا بعداً دوباره بررسی کنید.
               </p>
             </div>
           )}
@@ -462,8 +446,8 @@ const Reserve: React.FC = () => {
                 <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
                   {formatTime(slot.start_time)}
                 </p>
-                <p className="mt-0.5 text-[11px] text-gray-500">
-                  {toPersianLabel(slot.date ?? selectedDate)}
+                <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {toPersianLabel(slot.date ?? selectedDate ?? "")}
                 </p>
               </button>
             );

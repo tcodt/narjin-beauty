@@ -21,9 +21,6 @@ import {
   themeRing,
   mediaUrl,
 } from "../../utils/themeClasses";
-import { useHasFeature } from "../../hooks/subscription/useHasFeature";
-import FeatureLocked from "../../components/FeatureLocked/FeatureLocked";
-import Loading from "../../components/Loading/Loading";
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
@@ -212,9 +209,6 @@ const CustomersList: React.FC = () => {
   } = useMyCustomers();
   const { themeColor } = useThemeColor();
 
-  // کلید را با feature.key واقعی API عوض کن اگر فرق داشت
-  const { hasFeature, isLoading: featureLoading } = useHasFeature("customers");
-
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -238,17 +232,6 @@ const CustomersList: React.FC = () => {
   const isSearching = debouncedSearch.trim().length > 0;
   const total = customers.length;
   const shown = filtered.length;
-
-  if (featureLoading) return <Loading />;
-
-  if (!hasFeature) {
-    return (
-      <FeatureLocked
-        title="لیست مشتریان در پلن شما فعال نیست"
-        description="برای مشاهده و مدیریت مشتریان سالن، پلن مناسب را از صفحه پلن‌ها تهیه کنید."
-      />
-    );
-  }
 
   if (isLoading) {
     return (

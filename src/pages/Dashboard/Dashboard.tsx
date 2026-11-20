@@ -213,7 +213,7 @@ const AdminDashboardView: React.FC<{
               </span>
             </div>
             {!hasAnyIncome && (
-              <span className="text-[11px] text-gray-400">
+              <span className="textarea-xs text-gray-400">
                 هنوز درآمدی ثبت نشده
               </span>
             )}
@@ -273,7 +273,7 @@ const AdminDashboardView: React.FC<{
             </p>
           </div>
         ))}
-        <p className="col-span-full mt-1 text-[11px] leading-5 text-gray-400">
+        <p className="col-span-full mt-1 textarea-xs leading-5 text-gray-400">
           مبالغ بر اساس داده‌های داشبورد سالن شماست. پرداخت آنلاین و کیف پول
           فعال نیست.
         </p>

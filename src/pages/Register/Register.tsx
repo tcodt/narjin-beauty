@@ -8,6 +8,7 @@ import { useForm, SubmitHandler } from "react-hook-form";
 import { useRegister } from "../../hooks/accounts/register/useRegister";
 import { RegisterType } from "../../types/register";
 import { useThemeColor } from "../../context/ThemeColor";
+import { useRateLimitGuard } from "../../hooks/useRateLimitGuard";
 
 const Register: React.FC = () => {
   const {
@@ -20,14 +21,23 @@ const Register: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
   const registerMutation = useRegister();
   const { themeColor } = useThemeColor();
+  const rateLimit = useRateLimitGuard();
 
   const handleRegister: SubmitHandler<RegisterType> = (data) => {
-    registerMutation.mutate({
-      first_name: data.first_name.trim(),
-      last_name: data.last_name.trim(),
-      phone_number: data.phone_number,
-      password: data.password,
-    });
+    if (rateLimit.isLimited) return;
+    registerMutation.mutate(
+      {
+        first_name: data.first_name.trim(),
+        last_name: data.last_name.trim(),
+        phone_number: data.phone_number,
+        password: data.password,
+      },
+      {
+        onError: (error) => {
+          rateLimit.triggerFromError(error);
+        },
+      },
+    );
   };
 
   const inputErrorClass = (hasError: boolean) =>
@@ -39,7 +49,7 @@ const Register: React.FC = () => {
     <section
       className="w-full bg-gray-50 dark:bg-gray-900 h-screen overflow-y-auto
     [-webkit-overflow-scrolling:touch]
-    [scrollbar-width:none]
+    scrollbar-none
     [&::-webkit-scrollbar]:hidden"
     >
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-8 sm:px-6">
@@ -255,11 +265,27 @@ const Register: React.FC = () => {
               </p>
             </div>
 
-            <Button type="submit" disabled={registerMutation.isPending}>
-              {registerMutation.isPending
-                ? "در حال ثبت‌نام..."
-                : "ثبت‌نام و ادامه"}
+            <Button
+              type="submit"
+              disabled={registerMutation.isPending || rateLimit.isLimited}
+            >
+              {rateLimit.isLimited
+                ? `لطفاً ${rateLimit.secondsLeft} ثانیه صبر کنید`
+                : registerMutation.isPending
+                  ? "در حال ثبت‌نام..."
+                  : "ثبت‌نام و ادامه"}
             </Button>
+
+            {rateLimit.isLimited && (
+              <p
+                className="text-center text-sm text-amber-600 dark:text-amber-400"
+                role="status"
+                aria-live="polite"
+              >
+                تعداد درخواست‌ها زیاد است. پس از پایان شمارش می‌توانید دوباره
+                تلاش کنید.
+              </p>
+            )}
           </form>
 
           <div className="mt-6 flex items-center gap-3">

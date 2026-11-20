@@ -30,9 +30,7 @@ import ViewAppointment from "../pages/ViewAppointment/ViewAppointment";
 import ManageServices from "../pages/ManageServices/ManageServices";
 import UpdateAppointment from "../pages/UpdateAppointment/UpdateAppointment";
 import WorkingTime from "../pages/WorkingTime/WorkingTime";
-import AddWorkingTime from "../pages/AddWorkingTime/AddWorkingTime";
 import Sliders from "../pages/Sliders/Sliders";
-import UpdateWorkingTime from "../pages/UpdateWorkingTime/UpdateWorkingTime";
 import Packages from "../pages/Packages/Packages";
 import PackagesInfo from "../pages/PackagesInfo/PackagesInfo";
 import Logout from "../pages/Logout/Logout";
@@ -41,7 +39,7 @@ import { useAuth } from "../context/AuthContext";
 import AvailableTimes from "../pages/AvailableTimes/AvailableTimes";
 import UserProfileDetail from "../pages/UserProfileDetail/UserProfileDetail";
 import UpdateSlots from "../pages/UpdateSlots/UpdateSlots";
-import Users from "../pages/Users/Users";
+// import Users from "../pages/Users/Users";
 import { UserTypeProvider, useUserType } from "../context/UserTypeContext";
 import RoleAuthentication from "../pages/RoleAuthentication/RoleAuthentication";
 import CreateBusiness from "../pages/CreateBusiness/CreateBusiness";
@@ -63,6 +61,7 @@ import OwnerAppointment from "../pages/OwnerAppointment/OwnerAppointment";
 import SubscriptionGuard from "../components/SubscriptionGuard/SubscriptionGuard";
 import Plans from "../pages/Subscription/Plans";
 import BuySubscription from "../pages/Subscription/BuySubscription";
+import FeatureGate from "../components/FeatureGate/FeatureGate";
 
 /* -------------------------------------------------------------------------- */
 /* Network wrapper                                                            */
@@ -370,7 +369,9 @@ const AppRoutes: React.FC = () => {
               path="/manage-appointments"
               element={
                 <RoleRoute allow="owner">
-                  <ManageAppointments />
+                  <FeatureGate>
+                    <ManageAppointments />
+                  </FeatureGate>
                 </RoleRoute>
               }
             />
@@ -379,7 +380,9 @@ const AppRoutes: React.FC = () => {
               path="/manage-employees"
               element={
                 <RoleRoute allow="owner">
-                  <ManageEmployees />
+                  <FeatureGate>
+                    <ManageEmployees />
+                  </FeatureGate>
                 </RoleRoute>
               }
             />
@@ -388,7 +391,9 @@ const AppRoutes: React.FC = () => {
               path="/manage-services"
               element={
                 <RoleRoute allow="owner">
-                  <ManageServices />
+                  <FeatureGate>
+                    <ManageServices />
+                  </FeatureGate>
                 </RoleRoute>
               }
             />
@@ -397,7 +402,9 @@ const AppRoutes: React.FC = () => {
               path="/available-times"
               element={
                 <RoleRoute allow="owner">
-                  <AvailableTimes />
+                  <FeatureGate>
+                    <AvailableTimes />
+                  </FeatureGate>
                 </RoleRoute>
               }
             />
@@ -406,7 +413,9 @@ const AppRoutes: React.FC = () => {
               path="/update-appointment/:id"
               element={
                 <RoleRoute allow="owner">
-                  <UpdateAppointment />
+                  <FeatureGate>
+                    <UpdateAppointment />
+                  </FeatureGate>
                 </RoleRoute>
               }
             />
@@ -415,7 +424,9 @@ const AppRoutes: React.FC = () => {
               path="/update-slots/:id"
               element={
                 <RoleRoute allow="owner">
-                  <UpdateSlots />
+                  <FeatureGate>
+                    <UpdateSlots />
+                  </FeatureGate>
                 </RoleRoute>
               }
             />
@@ -424,25 +435,9 @@ const AppRoutes: React.FC = () => {
               path="/working-time"
               element={
                 <RoleRoute allow="owner">
-                  <WorkingTime />
-                </RoleRoute>
-              }
-            />
-
-            <Route
-              path="/add-working-time"
-              element={
-                <RoleRoute allow="owner">
-                  <AddWorkingTime />
-                </RoleRoute>
-              }
-            />
-
-            <Route
-              path="/update-working-time/:id"
-              element={
-                <RoleRoute allow="owner">
-                  <UpdateWorkingTime />
+                  <FeatureGate>
+                    <WorkingTime />
+                  </FeatureGate>
                 </RoleRoute>
               }
             />
@@ -451,7 +446,9 @@ const AppRoutes: React.FC = () => {
               path="/customers-list"
               element={
                 <RoleRoute allow="owner">
-                  <CustomersList />
+                  <FeatureGate>
+                    <CustomersList />
+                  </FeatureGate>
                 </RoleRoute>
               }
             />
@@ -460,7 +457,9 @@ const AppRoutes: React.FC = () => {
               path="/bank-cards"
               element={
                 <RoleRoute allow="owner">
-                  <BankCards />
+                  <FeatureGate>
+                    <BankCards />
+                  </FeatureGate>
                 </RoleRoute>
               }
             />
@@ -469,7 +468,9 @@ const AppRoutes: React.FC = () => {
               path="/manual-payments"
               element={
                 <RoleRoute allow="owner">
-                  <ManualPayments />
+                  <FeatureGate>
+                    <ManualPayments />
+                  </FeatureGate>
                 </RoleRoute>
               }
             />
@@ -478,7 +479,9 @@ const AppRoutes: React.FC = () => {
               path="/booking-qr"
               element={
                 <RoleRoute allow="owner">
-                  <BookingQr />
+                  <FeatureGate>
+                    <BookingQr />
+                  </FeatureGate>
                 </RoleRoute>
               }
             />
@@ -487,7 +490,9 @@ const AppRoutes: React.FC = () => {
               path="/business-logo"
               element={
                 <RoleRoute allow="owner">
-                  <BusinessLogo />
+                  <FeatureGate>
+                    <BusinessLogo />
+                  </FeatureGate>
                 </RoleRoute>
               }
             />
@@ -496,7 +501,9 @@ const AppRoutes: React.FC = () => {
               path="/owner-appointment/:id"
               element={
                 <RoleRoute allow="owner">
-                  <OwnerAppointment />
+                  <FeatureGate>
+                    <OwnerAppointment />
+                  </FeatureGate>
                 </RoleRoute>
               }
             />
@@ -505,7 +512,9 @@ const AppRoutes: React.FC = () => {
               path="/sliders"
               element={
                 <RoleRoute allow="owner">
-                  <Sliders />
+                  <FeatureGate>
+                    <Sliders />
+                  </FeatureGate>
                 </RoleRoute>
               }
             />
@@ -514,7 +523,9 @@ const AppRoutes: React.FC = () => {
               path="/packages"
               element={
                 <RoleRoute allow="owner">
-                  <Packages />
+                  <FeatureGate>
+                    <Packages />
+                  </FeatureGate>
                 </RoleRoute>
               }
             />
@@ -523,13 +534,15 @@ const AppRoutes: React.FC = () => {
               path="/packages/:id"
               element={
                 <RoleRoute allow="owner">
-                  <PackagesInfo />
+                  <FeatureGate>
+                    <PackagesInfo />
+                  </FeatureGate>
                 </RoleRoute>
               }
             />
 
             {/* فقط superuser پلتفرم — RoleRoute/ACL داخل Users */}
-            <Route path="/users" element={<Users />} />
+            {/* <Route path="/users" element={<Users />} /> */}
           </Route>
 
           <Route path="*" element={<NotFound />} />

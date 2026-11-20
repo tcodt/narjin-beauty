@@ -5,7 +5,6 @@ import Button from "../../components/Button/Button";
 import { useGetPackages } from "../../hooks/packages/useGetPackages";
 import { useGetServices } from "../../hooks/services/useGetServices";
 import { useAddPackage } from "../../hooks/packages/useAddPackage";
-import Loading from "../../components/Loading/Loading";
 import toast from "react-hot-toast";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
@@ -33,8 +32,6 @@ import {
 } from "../../utils/themeClasses";
 import EmptyState from "../../components/EmptyState/EmptyState";
 import { BiPackage } from "react-icons/bi";
-import { useHasFeature } from "../../hooks/subscription/useHasFeature";
-import FeatureLocked from "../../components/FeatureLocked/FeatureLocked";
 
 const parentVariants = {
   hidden: { opacity: 0 },
@@ -67,9 +64,6 @@ const Packages: React.FC = () => {
   const { themeColor } = useThemeColor();
   const { data: myBusiness } = useBusinessMe();
   const myBusinessId = myBusiness?.id ?? 0;
-
-  // کلید را با feature.key واقعی API عوض کن اگر فرق داشت
-  const { hasFeature, isLoading: featureLoading } = useHasFeature("packages");
 
   const addForm = useForm<AddPackage>({
     defaultValues: {
@@ -108,7 +102,7 @@ const Packages: React.FC = () => {
     setValue: updateSetValue,
   } = updateForm;
 
-  const { data: packages = [], isPending, isError, error } = useGetPackages();
+  const { data: packages = [], isError, error } = useGetPackages();
   const { data: servicesData = [] } = useGetServices();
   const addPackageMutation = useAddPackage();
   const removePackageMutation = useRemovePackage();
@@ -246,17 +240,6 @@ const Packages: React.FC = () => {
       },
     );
   };
-
-  if (featureLoading || isPending) return <Loading />;
-
-  if (!hasFeature) {
-    return (
-      <FeatureLocked
-        title="پکیج‌ها در پلن شما فعال نیست"
-        description="برای ساخت و مدیریت پکیج‌های ترکیبی، پلن مناسب را از صفحه پلن‌ها تهیه کنید."
-      />
-    );
-  }
 
   if (isError) {
     console.error(error);

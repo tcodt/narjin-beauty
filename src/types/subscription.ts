@@ -29,7 +29,13 @@ export type SubscriptionStatus =
 
 export interface Subscription {
   id: number;
-  plan: Plan | null;
+  can_use_panel?: boolean;
+  features?: PlanFeature[];
+  plan?: {
+    id: number;
+    title: string;
+    features?: PlanFeature[];
+  } | null;
   plan_id?: number | null;
   business_id?: number;
   trial_start?: string | null;
@@ -39,9 +45,6 @@ export interface Subscription {
   active?: boolean;
   is_active?: boolean;
   status?: SubscriptionStatus;
-  /** اگر بک‌اند بفرستد */
-  can_use_panel?: boolean;
-  features?: PlanFeature[];
   plan_name?: string | null;
 }
 
@@ -83,4 +86,16 @@ export interface FeatureCheckResponse {
   allowed?: boolean;
   value?: string | null;
   [key: string]: unknown;
+}
+
+export interface Feature {
+  id: number;
+  title: string;
+  key: string;
+  description?: string;
+}
+
+export interface PlanFeature {
+  feature: Feature;
+  value: string; // دارد | ندارد | 5 | نامحدود | ...
 }

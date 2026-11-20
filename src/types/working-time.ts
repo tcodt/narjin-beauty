@@ -1,10 +1,16 @@
 export interface WeeklyWorkingHour {
   id: number;
-  weekday: number; // 0=دوشنبه ... 4=جمعه, 5=شنبه, 6=یکشنبه (طبق PDF)
+  weekday: number; // 0=دوشنبه ... 4=جمعه, 5=شنبه, 6=یکشنبه
   weekday_display: string;
   is_open: boolean;
   opening_time: string | null; // HH:MM
   closing_time: string | null;
+}
+
+export interface Holiday {
+  id: number;
+  date: string; // YYYY-MM-DD
+  title: string;
 }
 
 export interface SpecialDay {
@@ -14,39 +20,30 @@ export interface SpecialDay {
   closing_time: string;
 }
 
-export interface Holiday {
-  id: number;
-  date: string; // YYYY-MM-DD
-  title: string;
-}
-
-/** پاسخ عمومی سالن */
+/** پاسخ عمومی سالن (مشتری) */
 export interface PublicWorkingHoursResponse {
   weekly: WeeklyWorkingHour[];
   special_days: SpecialDay[];
   holidays: Holiday[];
 }
 
-/** قدیمی — فقط برای سازگاری موقت */
-export interface WorkTimeType {
-  id: number;
-  day: string;
-  opening_time: string;
-  closing_time: string;
-}
-
-export type WorkTimePromise = WorkTimeType[] | PublicWorkingHoursResponse;
-
-export interface WorkingTimePost {
-  day: string;
-  opening_time: string;
-  closing_time: string;
-}
-
-/** Owner panel — weekly */
+/** برای upsert هفتگی */
 export interface WeeklyUpsertItem {
   weekday: number;
   is_open: boolean;
   opening_time?: string | null;
   closing_time?: string | null;
 }
+
+export type WeeklyUpsertPayload = WeeklyUpsertItem | WeeklyUpsertItem[];
+
+/** نگاشت روزهای هفته (طبق PDF) */
+export const WEEKDAY_MAP = [
+  { value: 5, label: "شنبه" },
+  { value: 6, label: "یکشنبه" },
+  { value: 0, label: "دوشنبه" },
+  { value: 1, label: "سه‌شنبه" },
+  { value: 2, label: "چهارشنبه" },
+  { value: 3, label: "پنجشنبه" },
+  { value: 4, label: "جمعه" },
+] as const;
