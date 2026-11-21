@@ -11,6 +11,7 @@ import { PiFilesDuotone } from "react-icons/pi";
 import { motion } from "framer-motion";
 import AppointmentCard from "../../components/AppointmentCard/AccpointmentCard";
 import { AppointmentStatus } from "../../types/appointments";
+import { parseApiError } from "../../utils/parseApiError";
 
 const parentVariants = {
   hidden: { opacity: 0 },
@@ -71,8 +72,7 @@ const AppointmentsList: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ["appointments"] });
       },
       onError: (err) => {
-        toast.error("خطا در حذف رزرو!", { id: toastId });
-        console.log(err);
+        toast.error(parseApiError(err), { id: toastId });
       },
     });
   };

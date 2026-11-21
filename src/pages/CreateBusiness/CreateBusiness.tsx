@@ -8,23 +8,37 @@ import {
   FaPhone,
   FaPhoneAlt,
 } from "react-icons/fa";
-import { useForm } from "react-hook-form";
+import { useForm, useController } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { BusinessData, businessSchema } from "../../schemas/business.schema";
 import { useAddBusiness } from "../../hooks/business/useAddBusiness";
 import toast from "react-hot-toast";
 import { useUserType } from "../../context/UserTypeContext";
 import { useQueryClient } from "@tanstack/react-query";
 
-const toSlug = (value: string) =>
+/**
+ * Live normalizer (used while typing).
+ * - lowercases
+ * - collapses whitespace/underscores into a single dash
+ * - keeps Unicode letters & digits (Persian works)
+ * - collapses repeated dashes
+ * - trims leading dashes only (keeps a trailing dash while typing,
+ *   so the user *sees* the space turn into "-")
+ */
+const toSlugLive = (value: string) =>
   value
-    .trim()
     .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-_]/g, "")
+    .replace(/[\s_]+/g, "-")
+    .replace(/[^\p{L}\p{N}-]/gu, "")
     .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+    .replace(/^-+/, "");
+
+/**
+ * Final normalizer (used on blur / submit).
+ * Same as live, but also trims trailing dashes.
+ */
+const toSlug = (value: string) => toSlugLive(value).replace(/-+$/, "");
 
 const CreateBusiness: React.FC = () => {
   const {
@@ -32,6 +46,7 @@ const CreateBusiness: React.FC = () => {
     handleSubmit,
     setValue,
     watch,
+    control,
     formState: { errors },
   } = useForm<BusinessData>({
     resolver: zodResolver(businessSchema),
@@ -47,9 +62,31 @@ const CreateBusiness: React.FC = () => {
 
   const navigate = useNavigate();
   const addBusinessMutation = useAddBusiness();
-  const slugValue = watch("slug");
   const { setUserType } = useUserType();
   const queryClient = useQueryClient();
+
+  const nameValue = watch("name");
+  const slugValue = watch("slug");
+
+  // Track whether the user has manually edited the slug.
+  // While false, slug auto-syncs from the business name.
+  const slugEditedRef = useRef(false);
+
+  // Slug is fully controlled by RHF via useController.
+  const { field: slugField } = useController({
+    name: "slug",
+    control,
+    defaultValue: "",
+  });
+
+  // Auto-derive slug from name while the user hasn't touched the slug field.
+  useEffect(() => {
+    if (slugEditedRef.current) return;
+    const derived = toSlug(nameValue || "");
+    if (derived !== slugValue) {
+      setValue("slug", derived, { shouldValidate: !!derived });
+    }
+  }, [nameValue, slugValue, setValue]);
 
   const handleBack = () => navigate(-1);
 
@@ -121,7 +158,7 @@ const CreateBusiness: React.FC = () => {
             )}
           </div>
 
-          {/* Slug — auto dash on space */}
+          {/* Slug — controlled via useController, space→dash live, trim on blur */}
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
               آدرس اختصاصی (Slug)
@@ -133,24 +170,40 @@ const CreateBusiness: React.FC = () => {
                 placeholder="niloufar-beauty"
                 dir="ltr"
                 className={`primary-input-green pl-10 text-left ${errors.slug ? "outline-red-500" : ""}`}
-                value={slugValue || ""}
-                onChange={(e) =>
-                  setValue("slug", toSlug(e.target.value), {
-                    shouldValidate: true,
-                  })
-                }
+                name={slugField.name}
+                ref={slugField.ref}
+                value={slugField.value ?? ""}
+                onChange={(e) => {
+                  slugEditedRef.current = true;
+                  slugField.onChange(toSlugLive(e.target.value));
+                }}
+                onBlur={(e) => {
+                  // Final trim of any trailing dash on blur.
+                  slugField.onChange(toSlug(e.target.value));
+                  slugField.onBlur();
+                }}
               />
             </div>
             {errors.slug && (
               <p className="mt-1 text-sm text-red-600">{errors.slug.message}</p>
             )}
-            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              کلمات را با خط تیره جدا کنید. با زدن فاصله، خودکار به{" "}
-              <span className="font-mono">-</span> تبدیل می‌شود. مثال:{" "}
-              <span className="font-mono" dir="ltr">
-                my-beauty-salon
-              </span>
-            </p>
+
+            {slugValue ? (
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                آدرس نهایی:{" "}
+                <span className="font-mono" dir="ltr">
+                  narjin.ir/{slugValue}
+                </span>
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                فقط حروف، اعداد و خط تیره مجاز است. فاصله به‌طور خودکار به{" "}
+                <span className="font-mono">-</span> تبدیل می‌شود. مثال:{" "}
+                <span className="font-mono" dir="ltr">
+                  my-beauty-salon
+                </span>
+              </p>
+            )}
           </div>
 
           {/* Type — only male / female salon */}

@@ -1,9 +1,11 @@
 import React from "react";
 import { useNavigate } from "react-router";
-import { FaEye, FaRegTrashAlt, FaUser } from "react-icons/fa";
+import { FaEye, FaUser } from "react-icons/fa";
 import DetailsMenu from "../DetailsMenu/DetailsMenu";
 import { MdOutlineCancel } from "react-icons/md";
 import { useCancelAppointment } from "../../hooks/appointments/useCancelAppointment";
+// keep icon import used only when onRemove path is active
+import { FaRegTrashAlt } from "react-icons/fa";
 import { motion } from "framer-motion";
 
 interface AppointmentCardProps {
@@ -14,11 +16,12 @@ interface AppointmentCardProps {
     get_status?: string;
     employee_name?: string;
     employee?: {
-      user?: string | { first_name?: string; last_name?: string }; // 👈 Allow both types
+      user?: string | { first_name?: string; last_name?: string };
       skill?: string;
     };
   };
-  onRemove: (id: number) => void;
+  /** Optional hard-delete; prefer cancel for active bookings */
+  onRemove?: (id: number) => void;
 }
 
 const statusStyles: Record<
@@ -63,7 +66,6 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
   const style = statusStyles[appointment.status] || statusStyles.pending;
   const serviceName = appointment.service?.name || "خدمت";
 
-  // 👇 Fix: properly handle both string and object types for employee.user
   const employeeName =
     appointment.employee_name ||
     (typeof appointment.employee?.user === "string"
@@ -76,8 +78,42 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
           .join(" ")) ||
     "—";
 
+  // Swagger: customer cancel only via POST cancel — not for already canceled
   const canCancel =
     appointment.status === "pending" || appointment.status === "confirmed";
+
+  const handleCancel = () => {
+    if (!canCancel || cancelMutation.isPending) return;
+    if (!window.confirm("این نوبت لغو شود؟")) return;
+    cancelMutation.mutate();
+  };
+
+  const menuItems = [
+    {
+      label: "مشاهده",
+      onClick: () => navigate(`/view-appointment/${appointment.id}`),
+      icon: <FaEye color="gray" />,
+    },
+    ...(canCancel
+      ? [
+          {
+            label: cancelMutation.isPending ? "در حال لغو..." : "لغو نوبت",
+            onClick: handleCancel,
+            icon: <MdOutlineCancel color="gray" />,
+          },
+        ]
+      : []),
+    // حذف فقط برای نوبت‌های لغو‌شده (اگر بک‌اند DELETE دارد)
+    ...(appointment.status === "canceled" && onRemove
+      ? [
+          {
+            label: "حذف از لیست",
+            onClick: () => onRemove(appointment.id),
+            icon: <FaRegTrashAlt color="gray" />,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <motion.div
@@ -128,29 +164,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
           )}
         </div>
 
-        <DetailsMenu
-          menuItems={[
-            {
-              label: "مشاهده",
-              onClick: () => navigate(`/view-appointment/${appointment.id}`),
-              icon: <FaEye color="gray" />,
-            },
-            ...(canCancel
-              ? [
-                  {
-                    label: cancelMutation.isPending ? "در حال لغو..." : "لغو",
-                    onClick: () => cancelMutation.mutate(),
-                    icon: <MdOutlineCancel color="gray" />,
-                  },
-                ]
-              : []),
-            {
-              label: "حذف",
-              onClick: () => onRemove(appointment.id),
-              icon: <FaRegTrashAlt color="gray" />,
-            },
-          ]}
-        />
+        <DetailsMenu menuItems={menuItems} />
       </div>
 
       <button

@@ -41,8 +41,6 @@ import {
   themeBorder,
 } from "../../utils/themeClasses";
 import { SalonQrCard } from "../../components/SalonQrCard/SalonQrCard";
-import { SubscriptionStatusBanner } from "../../components/SubscriptionStatusBanner/SubscriptionStatusBanner";
-import { useSubscriptionStatus } from "../../hooks/subscription/useSubscription";
 
 /* -------------------------------------------------------------------------- */
 /* Shared design tokens                                                       */
@@ -709,9 +707,6 @@ const Dashboard: React.FC = () => {
   const isOwnerClient =
     isBusinessOwner || isOwner || isSuperuser || role === "admin";
 
-  const { data: subscription, isPending: subscriptionLoading } =
-    useSubscriptionStatus(isOwnerClient);
-
   if (isPending || aclLoading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -759,14 +754,6 @@ const Dashboard: React.FC = () => {
         <h3 className="col-span-full mt-2 truncate text-xl font-bold text-gray-900 dark:text-white">
           {isOwnerClient ? "گزارشات کسب‌وکار" : "داشبورد من"}
         </h3>
-
-        {isOwnerClient && (
-          <SubscriptionStatusBanner
-            subscription={subscription ?? null}
-            isLoading={subscriptionLoading}
-            themeColor={themeColor}
-          />
-        )}
 
         {showAdminFull && (
           <AdminDashboardView

@@ -16,6 +16,8 @@ import {
   getEmployeePhone,
 } from "../../types/employees";
 import { themeGradientBar, themeText } from "../../utils/themeClasses";
+import { useCancelAppointment } from "../../hooks/appointments/useCancelAppointment";
+import { useQueryClient } from "@tanstack/react-query";
 
 const statusStyles = (status?: string) => {
   switch (status) {
@@ -75,6 +77,25 @@ const ViewAppointment: React.FC = () => {
   } = useAppointmentById(appointmentId);
   const { themeColor } = useThemeColor();
   const navigate = useNavigate();
+  const cancelMutation = useCancelAppointment(appointmentId);
+  const queryClient = useQueryClient();
+
+  const canCancel =
+    appointmentData?.status === "pending" ||
+    appointmentData?.status === "confirmed";
+
+  const handleCancel = () => {
+    if (!canCancel || cancelMutation.isPending) return;
+    if (!window.confirm("این نوبت لغو شود؟")) return;
+    cancelMutation.mutate(undefined, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: ["appointment", appointmentId],
+        });
+        navigate("/appointments-list");
+      },
+    });
+  };
 
   if (isPending) return <Loading />;
 
@@ -144,7 +165,7 @@ const ViewAppointment: React.FC = () => {
       {/* Hero card */}
       <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-md dark:border-gray-700 dark:bg-gray-800">
         <div
-          className={`bg-gradient-to-l ${themeGradientBar[themeColor]} to-${themeColor}-500 px-5 py-5 text-white`}
+          className={`bg-linear-to-l ${themeGradientBar[themeColor]} to-${themeColor}-500 px-5 py-5 text-white`}
         >
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -234,6 +255,18 @@ const ViewAppointment: React.FC = () => {
 
       {/* Actions */}
       <div className="flex flex-wrap gap-3">
+        {canCancel && (
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={cancelMutation.isPending}
+            onClick={handleCancel}
+            className="border border-rose-200 text-rose-600 hover:bg-rose-50"
+          >
+            {cancelMutation.isPending ? "در حال لغو..." : "لغو نوبت"}
+          </Button>
+        )}
+
         <Button
           type="button"
           onClick={() => setIsModalOpen(true)}
@@ -241,6 +274,7 @@ const ViewAppointment: React.FC = () => {
         >
           تکمیل پرداخت
         </Button>
+
         <button
           type="button"
           onClick={downloadReceipt}

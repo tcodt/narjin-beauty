@@ -22,6 +22,7 @@ import EmptyState from "../../components/EmptyState/EmptyState";
 import { IoCalendarOutline } from "react-icons/io5";
 import SearchBar from "../../components/SearchBar/SearchBar";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import Dots from "../../components/Dots/Dots";
 
 type FilterKey = "today" | "pending" | "confirmed" | "canceled" | "all";
 
@@ -92,6 +93,7 @@ const ManageAppointments: React.FC = () => {
   const {
     data: appointments = [],
     isError,
+    isPending,
     error,
     refetch,
     isFetching,
@@ -179,6 +181,14 @@ const ManageAppointments: React.FC = () => {
         <Button type="button" onClick={() => refetch()}>
           تلاش مجدد
         </Button>
+      </div>
+    );
+  }
+
+  if (isPending) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <Dots />
       </div>
     );
   }
