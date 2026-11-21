@@ -1,12 +1,10 @@
 import React from "react";
 import { useNavigate } from "react-router";
 import { FaEye, FaUser } from "react-icons/fa";
-import DetailsMenu from "../DetailsMenu/DetailsMenu";
 import { MdOutlineCancel } from "react-icons/md";
-import { useCancelAppointment } from "../../hooks/appointments/useCancelAppointment";
-// keep icon import used only when onRemove path is active
-import { FaRegTrashAlt } from "react-icons/fa";
 import { motion } from "framer-motion";
+import DetailsMenu from "../DetailsMenu/DetailsMenu";
+import { useCancelAppointment } from "../../hooks/appointments/useCancelAppointment";
 
 interface AppointmentCardProps {
   appointment: {
@@ -20,46 +18,37 @@ interface AppointmentCardProps {
       skill?: string;
     };
   };
-  /** Optional hard-delete; prefer cancel for active bookings */
-  onRemove?: (id: number) => void;
 }
 
 const statusStyles: Record<
   string,
-  { dot: string; text: string; badge: string; label: string }
+  { dot: string; badge: string; label: string }
 > = {
   confirmed: {
     dot: "bg-green-500",
-    text: "text-green-600 dark:text-green-400",
     badge:
       "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300",
     label: "تأیید شده",
   },
   canceled: {
     dot: "bg-red-500",
-    text: "text-red-600 dark:text-red-400",
     badge: "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300",
     label: "لغو شده",
   },
   completed: {
     dot: "bg-blue-500",
-    text: "text-blue-600 dark:text-blue-400",
     badge: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
     label: "انجام شده",
   },
   pending: {
     dot: "bg-amber-500",
-    text: "text-amber-600 dark:text-amber-400",
     badge:
       "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
     label: "در انتظار",
   },
 };
 
-const AppointmentCard: React.FC<AppointmentCardProps> = ({
-  appointment,
-  onRemove,
-}) => {
+const AppointmentCard: React.FC<AppointmentCardProps> = ({ appointment }) => {
   const navigate = useNavigate();
   const cancelMutation = useCancelAppointment(appointment.id);
 
@@ -78,7 +67,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
           .join(" ")) ||
     "—";
 
-  // Swagger: customer cancel only via POST cancel — not for already canceled
+  // Swagger: POST cancel — فقط pending | confirmed
   const canCancel =
     appointment.status === "pending" || appointment.status === "confirmed";
 
@@ -100,16 +89,6 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
             label: cancelMutation.isPending ? "در حال لغو..." : "لغو نوبت",
             onClick: handleCancel,
             icon: <MdOutlineCancel color="gray" />,
-          },
-        ]
-      : []),
-    // حذف فقط برای نوبت‌های لغو‌شده (اگر بک‌اند DELETE دارد)
-    ...(appointment.status === "canceled" && onRemove
-      ? [
-          {
-            label: "حذف از لیست",
-            onClick: () => onRemove(appointment.id),
-            icon: <FaRegTrashAlt color="gray" />,
           },
         ]
       : []),

@@ -38,7 +38,7 @@ import AclManager from "../components/AclManager/AclManager";
 import { useAuth } from "../context/AuthContext";
 import AvailableTimes from "../pages/AvailableTimes/AvailableTimes";
 import UserProfileDetail from "../pages/UserProfileDetail/UserProfileDetail";
-import UpdateSlots from "../pages/UpdateSlots/UpdateSlots";
+// import UpdateSlots from "../pages/UpdateSlots/UpdateSlots";
 // import Users from "../pages/Users/Users";
 import { UserTypeProvider, useUserType } from "../context/UserTypeContext";
 import RoleAuthentication from "../pages/RoleAuthentication/RoleAuthentication";
@@ -420,7 +420,7 @@ const AppRoutes: React.FC = () => {
               }
             />
 
-            <Route
+            {/* <Route
               path="/update-slots/:id"
               element={
                 <RoleRoute allow="owner">
@@ -429,7 +429,7 @@ const AppRoutes: React.FC = () => {
                   </FeatureGate>
                 </RoleRoute>
               }
-            />
+            /> */}
 
             <Route
               path="/working-time"

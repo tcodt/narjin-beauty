@@ -1,10 +1,7 @@
 import React, { useMemo, useState } from "react";
 import Loading from "../../components/Loading/Loading";
-import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
 import { useGetAppointments } from "../../hooks/appointments/useGetAppointments";
-import { useRemoveAppointment } from "../../hooks/appointments/useRemoveAppointment";
-import { useQueryClient } from "@tanstack/react-query";
 import Button from "../../components/Button/Button";
 import PageTitle from "../../components/PageTitle/PageTitle";
 import { PiFilesDuotone } from "react-icons/pi";
@@ -36,12 +33,11 @@ const AppointmentsList: React.FC = () => {
     isPending,
     isError,
     error,
+    refetch,
   } = useGetAppointments();
 
   const [filter, setFilter] = useState<FilterKey>("all");
   const navigate = useNavigate();
-  const removeAppointmentMutation = useRemoveAppointment();
-  const queryClient = useQueryClient();
 
   const filtered = useMemo(() => {
     if (!appointments) return [];
@@ -58,24 +54,18 @@ const AppointmentsList: React.FC = () => {
   }, [appointments]);
 
   if (isError) {
-    toast.error("مشکلی در دریافت رزروها پیش آمد!");
-    console.log(error);
+    return (
+      <div className="mx-auto max-w-lg space-y-4 py-16 text-center">
+        <p className="text-rose-600">خطا در دریافت رزروها</p>
+        <p className="text-xs text-gray-500">{parseApiError(error)}</p>
+        <Button type="button" onClick={() => refetch()}>
+          تلاش مجدد
+        </Button>
+      </div>
+    );
   }
 
   if (isPending) return <Loading />;
-
-  const handleRemoveAppointment = (id: number) => {
-    const toastId = toast.loading("در حال حذف...");
-    removeAppointmentMutation.mutate(id, {
-      onSuccess: () => {
-        toast.success("رزرو با موفقیت حذف شد", { id: toastId });
-        queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      },
-      onError: (err) => {
-        toast.error(parseApiError(err), { id: toastId });
-      },
-    });
-  };
 
   return (
     <div className="space-y-6 pb-8">
@@ -90,7 +80,6 @@ const AppointmentsList: React.FC = () => {
         </Button>
       </div>
 
-      {/* Status filters */}
       <div className="flex flex-wrap gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden">
         {FILTERS.map((f) => {
           const active = filter === f.key;
@@ -102,7 +91,7 @@ const AppointmentsList: React.FC = () => {
               className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition ${
                 active
                   ? "bg-primary-green-600 text-white shadow"
-                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600"
+                  : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
               }`}
             >
               {f.label}
@@ -126,11 +115,7 @@ const AppointmentsList: React.FC = () => {
           animate="visible"
         >
           {filtered.map((appointment) => (
-            <AppointmentCard
-              key={appointment.id}
-              appointment={appointment}
-              onRemove={handleRemoveAppointment}
-            />
+            <AppointmentCard key={appointment.id} appointment={appointment} />
           ))}
         </motion.div>
       ) : (

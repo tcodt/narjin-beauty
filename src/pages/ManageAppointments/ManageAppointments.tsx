@@ -23,6 +23,7 @@ import { IoCalendarOutline } from "react-icons/io5";
 import SearchBar from "../../components/SearchBar/SearchBar";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import Dots from "../../components/Dots/Dots";
+import { parseApiError } from "../../utils/parseApiError";
 
 type FilterKey = "today" | "pending" | "confirmed" | "canceled" | "all";
 
@@ -67,21 +68,6 @@ const statusMeta = (status?: string) => {
       };
   }
 };
-
-function parseApiError(error: unknown, fallback: string): string {
-  const ax = error as { response?: { data?: unknown } };
-  const data = ax.response?.data;
-  if (typeof data === "string" && data.trim()) return data;
-  if (data && typeof data === "object") {
-    const obj = data as Record<string, unknown>;
-    if (typeof obj.detail === "string") return obj.detail;
-    const first = Object.values(obj).find((v) => Array.isArray(v) && v[0]) as
-      | string[]
-      | undefined;
-    if (first?.[0]) return String(first[0]);
-  }
-  return fallback;
-}
 
 const ManageAppointments: React.FC = () => {
   const { themeColor } = useThemeColor();
@@ -151,10 +137,8 @@ const ManageAppointments: React.FC = () => {
       });
     } catch (err) {
       toast.error(
-        parseApiError(
-          err,
-          status === "confirmed" ? "تأیید ناموفق" : "رد ناموفق",
-        ),
+        parseApiError(err) ||
+          (status === "confirmed" ? "تأیید ناموفق" : "رد ناموفق"),
         { id: toastId },
       );
     } finally {
@@ -177,7 +161,7 @@ const ManageAppointments: React.FC = () => {
     return (
       <div className="mx-auto max-w-lg space-y-4 py-12 text-center">
         <p className="text-rose-600">خطا در دریافت نوبت‌ها</p>
-        <p className="text-xs text-gray-500">{parseApiError(error, "")}</p>
+        <p className="text-xs text-gray-500">{parseApiError(error)}</p>
         <Button type="button" onClick={() => refetch()}>
           تلاش مجدد
         </Button>

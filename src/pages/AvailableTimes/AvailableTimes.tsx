@@ -25,6 +25,7 @@ import FeatureLocked from "../../components/FeatureLocked/FeatureLocked";
 import Loading from "../../components/Loading/Loading";
 import { themeText } from "../../utils/themeClasses";
 import { parseApiError } from "../../utils/parseApiError";
+import { FEATURE } from "../../constants/featureRoutes";
 
 const parentVariants = {
   hidden: { opacity: 0 },
@@ -38,8 +39,6 @@ const childrenVariants = {
   hidden: { opacity: 0, y: 12 },
   visible: { opacity: 1, y: 0 },
 };
-
-const SLOTS_FEATURE_KEY = "appointment_management";
 
 const formatJalali = (iso: string) => {
   const j = isoToJalali(iso);
@@ -64,8 +63,9 @@ const AvailableTimes: React.FC = () => {
     "all" | "available" | "unavailable"
   >("all");
 
-  const { hasFeature, isLoading: featureLoading } =
-    useHasFeature(SLOTS_FEATURE_KEY);
+  const { hasFeature, isLoading: featureLoading } = useHasFeature(
+    FEATURE.appointments,
+  );
 
   const { data: slots, isPending, isError } = useGetSlots();
   const addSlotMutation = useAddSlots();
