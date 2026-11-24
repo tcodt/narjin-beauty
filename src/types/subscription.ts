@@ -8,7 +8,6 @@ export interface Feature {
 export interface PlanFeature {
   feature: Feature;
   is_included?: boolean;
-  /** فقط برای نمایش در صفحهٔ تعرفه */
   value?: string | null;
 }
 

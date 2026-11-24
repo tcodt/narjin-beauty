@@ -27,9 +27,33 @@ export function parseApiError(error: unknown): string {
     return "نشست شما منقضی شده. دوباره وارد شوید.";
   }
 
+  // داخل parseApiError، بخش 403 را این‌طور کنید:
+
   if (status === 403) {
-    if (typeof data === "object" && data && "detail" in data && data.detail) {
-      return String(data.detail);
+    const code =
+      typeof data === "object" &&
+      data &&
+      "detail" in data &&
+      typeof (data as { detail?: unknown }).detail === "object"
+        ? ((data as { detail?: { code?: string; message?: string } }).detail
+            ?.code as string | undefined)
+        : undefined;
+
+    if (code === "subscription_required") {
+      return "برای استفاده از این بخش نیاز به اشتراک فعال دارید.";
+    }
+
+    if (
+      typeof data === "object" &&
+      data &&
+      "detail" in data &&
+      (data as { detail?: unknown }).detail
+    ) {
+      const detail = (data as { detail: unknown }).detail;
+      if (typeof detail === "string") return detail;
+      if (typeof detail === "object" && detail && "message" in detail) {
+        return String((detail as { message?: string }).message);
+      }
     }
     return "دسترسی ندارید.";
   }

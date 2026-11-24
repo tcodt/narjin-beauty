@@ -13,6 +13,7 @@ export const canUsePanel = (access?: SubscriptionAccess | null): boolean => {
 
 /**
  * منبع حقیقت فیچر و پرمیشن از access endpoint
+ * کلیدها کاملاً از backend می‌آیند — هیچ hardcode نداریم
  */
 export const useFeatures = (enabled = true) => {
   const {

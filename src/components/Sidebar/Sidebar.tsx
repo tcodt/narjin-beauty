@@ -11,6 +11,7 @@ import {
   MdOutlineAccountCircle,
   MdPerson,
   MdSpaceDashboard,
+  MdLockOutline,
 } from "react-icons/md";
 import { useLocation, useNavigate } from "react-router";
 import { useSidebar } from "../../context/SidebarContext";
@@ -25,19 +26,22 @@ import { logoMap } from "../../utils/logoMap";
 import { motion } from "framer-motion";
 import { themeText } from "../../utils/themeClasses";
 import { FiCreditCard, FiFileText, FiUsers } from "react-icons/fi";
-import { FEATURE_ROUTE_MAP } from "../../constants/featureRoutes";
+import {
+  FEATURE_ROUTE_MAP,
+  getFeatureKeyForPath,
+} from "../../constants/featureRoutes";
 import { useFeatures } from "../../hooks/subscription/useFeature";
 
 const parentVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.12, delayChildren: 0.05 },
+    transition: { staggerChildren: 0.08, delayChildren: 0.04 },
   },
 };
 
 const childrenVariants = {
-  hidden: { opacity: 0, x: 80 },
+  hidden: { opacity: 0, x: 48 },
   visible: { opacity: 1, x: 0 },
 };
 
@@ -45,7 +49,8 @@ type NavItem = {
   icon: React.ReactNode;
   label: string;
   path: string;
-  requiredPermission: string | null;
+  /** پرمیشن ACL کارمند (برای owner معمولاً لازم نیست) */
+  requiredPermission?: string | null;
   customerOnly?: boolean;
   ownerOnly?: boolean;
   platformOnly?: boolean;
@@ -58,7 +63,12 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const { themeColor } = useThemeColor();
   const { role, isBusinessOwner, hasPermission, isSuperuser } = useAcl();
-  const { hasFeature, panelOk } = useFeatures();
+  const {
+    hasFeature,
+    isLocked,
+    panelOk,
+    isLoading: featuresLoading,
+  } = useFeatures();
 
   useEffect(() => {
     setIsSidebarOpen(false);
@@ -67,20 +77,19 @@ const Sidebar: React.FC = () => {
   const logoSrc = logoMap[themeColor] || "/images/logo-main.jpg";
   const isOwner = isBusinessOwner || role === "admin";
 
+  /** تعریف منوها — کلید فیچر از FEATURE_ROUTE_MAP خوانده می‌شود */
   const navItems: NavItem[] = useMemo(
     () => [
       {
         icon: <MdHome size={20} />,
         label: "صفحه اصلی",
         path: "/home",
-        requiredPermission: null,
         customerOnly: true,
       },
       {
         icon: <MdSpaceDashboard size={20} />,
         label: "داشبورد",
         path: "/dashboard",
-        requiredPermission: null,
       },
       {
         icon: <FaUsersGear size={20} />,
@@ -100,14 +109,12 @@ const Sidebar: React.FC = () => {
         icon: <HiClipboardList size={20} />,
         label: "لیست رزرو ها",
         path: "/appointments-list",
-        requiredPermission: null,
         customerOnly: true,
       },
       {
         icon: <HiClipboardList size={20} />,
         label: "مدیریت نوبت‌ها",
         path: "/manage-appointments",
-        requiredPermission: null,
         ownerOnly: true,
       },
       {
@@ -128,12 +135,11 @@ const Sidebar: React.FC = () => {
         icon: <TbCalendarTime size={20} />,
         label: "ساعات کاری و تعطیلات",
         path: "/working-time",
-        requiredPermission: null,
         ownerOnly: true,
       },
       {
         icon: <TbCalendarTime size={20} />,
-        label: "زمان های در دسترس",
+        label: "زمان‌های در دسترس",
         path: "/available-times",
         requiredPermission: "time_slot-list",
         ownerOnly: true,
@@ -142,7 +148,6 @@ const Sidebar: React.FC = () => {
         icon: <FaFileInvoiceDollar size={20} />,
         label: "پرداخت کارت‌به‌کارت",
         path: "/submit-manual-payment",
-        requiredPermission: null,
         customerOnly: true,
       },
       {
@@ -170,56 +175,93 @@ const Sidebar: React.FC = () => {
         icon: <FaQrcode size={20} />,
         label: "کد QR رزرو",
         path: "/booking-qr",
-        requiredPermission: null,
         ownerOnly: true,
       },
       {
         icon: <FaCrown size={20} />,
-        label: "پلن ها و اشتراک",
+        label: "پلن‌ها و اشتراک",
         path: "/plans",
-        requiredPermission: null,
         ownerOnly: true,
       },
       {
         icon: <FaStore size={20} />,
         label: "لوگوی سالن",
         path: "/business-logo",
-        requiredPermission: null,
         ownerOnly: true,
       },
       {
         icon: <MdPerson size={20} />,
         label: "پروفایل",
         path: "/user-profile",
-        requiredPermission: null,
       },
     ],
     [],
   );
 
+  /**
+   * فیلتر نهایی منو:
+   * 1. نقش (owner / customer)
+   * 2. ACL کارمند
+   * 3. فیچر از backend (hasFeature / isLocked)
+   *
+   * آیتم‌های قفل‌شده را هم نشان می‌دهیم (با آیکون قفل) تا کاربر ارتقا بدهد.
+   */
   const visibleNavItems = useMemo(() => {
-    return navItems.filter((item) => {
-      if (item.customerOnly && isOwner) return false;
-      if (item.ownerOnly && !isOwner) return false;
+    return navItems
+      .filter((item) => {
+        if (item.customerOnly && isOwner) return false;
+        if (item.ownerOnly && !isOwner) return false;
+        if (item.platformOnly) return isSuperuser;
 
-      // فقط سوپریوزر پلتفرم
-      if (item.platformOnly) return isSuperuser;
+        // ACL برای کارمند
+        if (item.requiredPermission && !isOwner) {
+          if (!hasPermission(item.requiredPermission)) return false;
+        }
 
-      // ACL
-      if (item.requiredPermission) {
-        if (!isOwner && !hasPermission(item.requiredPermission)) return false;
-      }
+        return true;
+      })
+      .map((item) => {
+        const featureKey =
+          FEATURE_ROUTE_MAP[item.path] ?? getFeatureKeyForPath(item.path);
 
-      // Feature از بک‌اند
-      const featureKey = FEATURE_ROUTE_MAP[item.path];
-      if (featureKey) {
-        if (!panelOk) return false;
-        return hasFeature(featureKey);
-      }
+        // مسیر بدون فیچر
+        if (!featureKey) {
+          return { ...item, locked: false, featureKey: null as string | null };
+        }
 
-      return true;
-    });
-  }, [navItems, isOwner, isSuperuser, hasPermission, panelOk, hasFeature]);
+        // Owner: بررسی فیچر از access
+        if (isOwner) {
+          const locked = isLocked(featureKey) || !hasFeature(featureKey);
+          // اگر پنل کلاً بسته است، همهٔ فیچرها را قفل نشان بده (به‌جز plans)
+          if (!panelOk && item.path !== "/plans") {
+            return { ...item, locked: true, featureKey };
+          }
+          return { ...item, locked, featureKey };
+        }
+
+        return { ...item, locked: false, featureKey };
+      });
+  }, [
+    navItems,
+    isOwner,
+    isSuperuser,
+    hasPermission,
+    panelOk,
+    hasFeature,
+    isLocked,
+  ]);
+
+  const handleNavigate = (path: string, locked: boolean) => {
+    if (locked) {
+      navigate("/plans", {
+        state: { from: path, reason: "feature_locked" },
+      });
+      setIsSidebarOpen(false);
+      return;
+    }
+    navigate(path);
+    setIsSidebarOpen(false);
+  };
 
   return (
     <>
@@ -262,6 +304,7 @@ const Sidebar: React.FC = () => {
           isSidebarOpen ? "translate-x-0" : "translate-x-full"
         } md:translate-x-0`}
       >
+        {/* Header */}
         <div className="flex items-center gap-3 border-b border-gray-100 p-4 dark:border-gray-800">
           <img
             src={logoSrc}
@@ -276,52 +319,73 @@ const Sidebar: React.FC = () => {
           </div>
         </div>
 
+        {/* Nav */}
         <nav className="sidebar-scroll flex-1 overflow-y-auto p-3">
-          <motion.ul
-            variants={parentVariants}
-            initial="hidden"
-            animate="visible"
-            className="space-y-1"
-          >
-            {visibleNavItems.map((item) => {
-              const active =
-                location.pathname === item.path ||
-                location.pathname.startsWith(item.path + "/");
+          {featuresLoading && isOwner ? (
+            <div className="flex justify-center py-8 text-sm text-gray-400">
+              در حال بارگذاری منو...
+            </div>
+          ) : (
+            <motion.ul
+              variants={parentVariants}
+              initial="hidden"
+              animate="visible"
+              className="space-y-1"
+            >
+              {visibleNavItems.map((item) => {
+                const active =
+                  location.pathname === item.path ||
+                  location.pathname.startsWith(item.path + "/");
+                const locked = item.locked;
 
-              return (
-                <motion.li key={item.path} variants={childrenVariants}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigate(item.path);
-                      setIsSidebarOpen(false);
-                    }}
-                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                      active
-                        ? `bg-${themeColor}-50 text-${themeColor}-700 dark:bg-${themeColor}-900/30 dark:text-${themeColor}-300`
-                        : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
-                    }`}
-                  >
-                    <span
-                      className={
-                        active ? `${themeText[themeColor]}` : "text-gray-400"
-                      }
+                return (
+                  <motion.li key={item.path} variants={childrenVariants}>
+                    <button
+                      type="button"
+                      onClick={() => handleNavigate(item.path, locked)}
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                        active && !locked
+                          ? `bg-${themeColor}-50 text-${themeColor}-700 dark:bg-${themeColor}-900/30 dark:text-${themeColor}-300`
+                          : locked
+                            ? "text-gray-400 opacity-70 hover:bg-gray-50 dark:text-gray-500 dark:hover:bg-gray-800"
+                            : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+                      }`}
                     >
-                      {item.icon}
-                    </span>
-                    <span className="truncate">{item.label}</span>
-                    {active && (
                       <span
-                        className={`mr-auto h-1.5 w-1.5 rounded-full bg-${themeColor}-500`}
-                      />
-                    )}
-                  </button>
-                </motion.li>
-              );
-            })}
-          </motion.ul>
+                        className={
+                          active && !locked
+                            ? themeText[themeColor]
+                            : locked
+                              ? "text-gray-400"
+                              : "text-gray-400"
+                        }
+                      >
+                        {item.icon}
+                      </span>
+                      <span className="truncate">{item.label}</span>
+
+                      {locked && (
+                        <MdLockOutline
+                          size={16}
+                          className="mr-auto shrink-0 text-amber-500"
+                          title="نیاز به ارتقای پلن"
+                        />
+                      )}
+
+                      {active && !locked && (
+                        <span
+                          className={`mr-auto h-1.5 w-1.5 shrink-0 rounded-full bg-${themeColor}-500`}
+                        />
+                      )}
+                    </button>
+                  </motion.li>
+                );
+              })}
+            </motion.ul>
+          )}
         </nav>
 
+        {/* Footer */}
         <div className="space-y-2 border-t border-gray-100 p-3 dark:border-gray-800">
           <button
             type="button"
@@ -331,13 +395,14 @@ const Sidebar: React.FC = () => {
             <IoLogOut size={18} />
             خروج از حساب
           </button>
+
           <div className="flex items-center gap-3 rounded-xl bg-gray-50 px-3 py-2.5 dark:bg-gray-800">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700">
               <MdOutlineAccountCircle className="text-gray-500" size={20} />
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-gray-800 dark:text-white">
-                {user?.first_name}
+                {user?.first_name || "کاربر"}
               </p>
               <p
                 className="truncate text-xs text-gray-500 dark:text-gray-400"

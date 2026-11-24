@@ -1,11 +1,11 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
 import {
   LuCheck,
   LuX,
-  LuChevronLeft,
   LuChevronRight,
+  LuChevronLeft,
   LuSparkles,
   LuCrown,
   LuCircleCheck,
@@ -31,11 +31,8 @@ import {
   themeBgSoft,
 } from "../../utils/themeClasses";
 import type { Plan } from "../../types/subscription";
+import type { SubscriptionAccess } from "../../types/subscription";
 import Button from "../../components/Button/Button";
-
-/* -------------------------------------------------------------------------- */
-/* Types                                                                      */
-/* -------------------------------------------------------------------------- */
 
 type PlanWithMeta = Plan & { is_popular?: boolean };
 
@@ -55,7 +52,7 @@ const splitFeatures = (
     return {
       id: f.feature.id,
       title: f.feature.title,
-      value: hasValue ? f.value : null,
+      value: hasValue ? (f.value ?? null) : null,
       included: !off,
     };
   });
@@ -66,10 +63,6 @@ const splitFeatures = (
 };
 
 const formatPrice = (price: number) => price.toLocaleString("fa-IR");
-
-/* -------------------------------------------------------------------------- */
-/* Skeleton                                                                   */
-/* -------------------------------------------------------------------------- */
 
 const PlansSkeleton: React.FC = () => (
   <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -96,10 +89,6 @@ const PlansSkeleton: React.FC = () => (
   </div>
 );
 
-/* -------------------------------------------------------------------------- */
-/* Plan card                                                                  */
-/* -------------------------------------------------------------------------- */
-
 interface PlanCardProps {
   plan: PlanWithMeta;
   featured: boolean;
@@ -116,13 +105,12 @@ const PlanCard: React.FC<PlanCardProps> = ({
   themeColor,
 }) => {
   const { included, excluded } = useMemo(() => splitFeatures(plan), [plan]);
-  const [showExcluded, setShowExcluded] = useState(false);
+  const [showExcluded, setShowExcluded] = React.useState(false);
   const perDay =
     plan.duration_days > 0 && plan.price > 0
       ? Math.round(plan.price / plan.duration_days)
       : null;
 
-  /* Two visual modes: featured (filled) vs standard (outline). */
   const surface = featured
     ? `bg-white dark:bg-gray-900 ring-2 ${themeBorder[themeColor]} shadow-xl shadow-black/5`
     : "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-sm";
@@ -135,17 +123,15 @@ const PlanCard: React.FC<PlanCardProps> = ({
       className={`relative flex h-full flex-col rounded-3xl p-6 transition-all duration-300 ${surface} ${selected ? "ring-2 ring-offset-2 ring-gray-900 dark:ring-gray-100" : ""}`}
       aria-label={`پلن ${plan.title}`}
     >
-      {/* Featured ribbon */}
       {featured && (
         <div
-          className={`absolute -top-3 right-6 inline-flex items-center gap-1 rounded-full px-3 py-1 textarea-xs font-bold text-white shadow-md ${themeBgSolid[themeColor]}`}
+          className={`absolute -top-3 right-6 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-white shadow-md ${themeBgSolid[themeColor]}`}
         >
           <LuCrown size={12} />
           پیشنهادی
         </div>
       )}
 
-      {/* Header */}
       <header className="mb-5">
         <h3 className="text-base font-semibold text-gray-500 dark:text-gray-400">
           {plan.title}
@@ -159,11 +145,7 @@ const PlanCard: React.FC<PlanCardProps> = ({
           ) : (
             <>
               <span
-                className={`text-4xl font-extrabold tracking-tight tabular-nums ${
-                  featured
-                    ? themeText[themeColor]
-                    : "text-gray-900 dark:text-white"
-                }`}
+                className={`text-4xl font-extrabold tracking-tight tabular-nums ${featured ? themeText[themeColor] : "text-gray-900 dark:text-white"}`}
               >
                 {formatPrice(plan.price)}
               </span>
@@ -187,21 +169,15 @@ const PlanCard: React.FC<PlanCardProps> = ({
         </p>
       </header>
 
-      {/* Features */}
       <div className="flex-1">
-        <p className="mb-3 textarea-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
           شامل
         </p>
         <ul className="space-y-2.5">
           {included.map((row) => (
             <li key={row.id} className="flex items-start gap-2.5 text-sm">
               <span
-                className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${
-                  featured
-                    ? `${themeBgSoft[themeColor]} ${themeText[themeColor]}`
-                    : "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
-                }`}
-                aria-hidden
+                className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${featured ? `${themeBgSoft[themeColor]} ${themeText[themeColor]}` : "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"}`}
               >
                 <LuCheck size={10} strokeWidth={3} />
               </span>
@@ -217,14 +193,13 @@ const PlanCard: React.FC<PlanCardProps> = ({
           ))}
         </ul>
 
-        {/* Excluded — collapsed */}
         {excluded.length > 0 && (
           <div className="mt-4">
             <button
               type="button"
               onClick={() => setShowExcluded((v) => !v)}
               aria-expanded={showExcluded}
-              className="inline-flex items-center gap-1 textarea-xs font-medium text-gray-400 transition hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:hover:text-gray-300"
+              className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 transition hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:hover:text-gray-300"
             >
               <LuX size={10} />
               {excluded.length} مورد بدون دسترسی
@@ -254,7 +229,6 @@ const PlanCard: React.FC<PlanCardProps> = ({
         )}
       </div>
 
-      {/* CTA */}
       <button
         type="button"
         onClick={() => onSelect(plan)}
@@ -272,21 +246,17 @@ const PlanCard: React.FC<PlanCardProps> = ({
   );
 };
 
-/* -------------------------------------------------------------------------- */
-/* Page                                                                       */
-/* -------------------------------------------------------------------------- */
-
 const Plans: React.FC = () => {
   const navigate = useNavigate();
   const { themeColor } = useThemeColor();
   const { data: plans = [], isPending } = usePlans();
   const { data: sub } = useSubscriptionStatus();
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-
+  const [selectedId, setSelectedId] = React.useState<number | null>(null);
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
 
-  const panelOk = canUsePanel(sub);
+  // فقط SubscriptionAccess قبول می‌شود
+  const panelOk = canUsePanel(sub as SubscriptionAccess | null);
 
   const featuredIndex = useMemo(() => {
     const idx = (plans as PlanWithMeta[]).findIndex((p) => p.is_popular);
@@ -301,12 +271,11 @@ const Plans: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-1 pb-12 pt-2">
-      {/* Header */}
       <header className="space-y-3 text-center">
         <PageTitle title="پلن‌ها و اشتراک" />
         <p className="mx-auto max-w-lg text-sm leading-6 text-gray-500 dark:text-gray-400">
           {!panelOk
-            ? "برای فعال‌سازی پنل، یک پلن انتخاب کنید. پس از تأیید پرداخت، دسترسی فعال می‌شود."
+            ? "برای فعال‌سازی پنل، یک پلن انتخاب کنید."
             : "پلن فعلی را ارتقا دهید یا دوره جدیدی شروع کنید."}
         </p>
 
@@ -318,7 +287,6 @@ const Plans: React.FC = () => {
         )}
       </header>
 
-      {/* Body */}
       {isPending ? (
         <PlansSkeleton />
       ) : plans.length === 0 ? (
@@ -328,9 +296,6 @@ const Plans: React.FC = () => {
           </div>
           <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
             هنوز پلنی تعریف نشده است
-          </p>
-          <p className="mt-1 text-xs text-gray-400">
-            برای اطلاع از پلن‌های آینده با پشتیبانی در تماس باشید.
           </p>
         </div>
       ) : (
@@ -350,21 +315,16 @@ const Plans: React.FC = () => {
               bulletClass: "plans-bullet",
               bulletActiveClass: "plans-bullet-active",
             }}
-            a11y={{
-              enabled: true,
-              prevSlideMessage: "پلن قبلی",
-              nextSlideMessage: "پلن بعدی",
-            }}
+            a11y={{ enabled: true }}
             breakpoints={{
-              768: { slidesPerView: 2, spaceBetween: 20 },
-              1024: { slidesPerView: 3, spaceBetween: 24 },
+              768: { slidesPerView: 2 },
+              1024: { slidesPerView: 3 },
             }}
             onBeforeInit={(swiper) => {
-              // Wire refs *before* init so navigation attaches correctly
-              // @ts-expect-error Swiper internal — refs are set post-mount
-              swiper.params.navigation.prevEl = prevRef.current;
-              // @ts-expect-error Swiper internal
-              swiper.params.navigation.nextEl = nextRef.current;
+              if (swiper.params.navigation) {
+                swiper.params.navigation.prevEl = prevRef.current;
+                swiper.params.navigation.nextEl = nextRef.current;
+              }
             }}
             className="pb-14! pt-6!"
           >
@@ -372,7 +332,7 @@ const Plans: React.FC = () => {
               <SwiperSlide
                 key={plan.id}
                 style={{ width: "calc(100vw - 5rem)", maxWidth: 360 }}
-                className="h-auto! min-h- md:w-auto! md:max-w-none!"
+                className="h-auto! min-h-md w-auto! md:w-auto! md:max-w-none!"
               >
                 <PlanCard
                   plan={plan}
@@ -385,14 +345,13 @@ const Plans: React.FC = () => {
             ))}
           </Swiper>
 
-          {/* Desktop arrows */}
           {plans.length > 1 && (
             <>
               <button
                 ref={prevRef}
                 type="button"
                 aria-label="پلن قبلی"
-                className="absolute right-0 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-md transition hover:-translate-y-1/2 hover:scale-105 hover:shadow-lg active:scale-95 disabled:opacity-30 disabled:hover:scale-100 md:flex dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                className="absolute right-0 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-md md:flex dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
               >
                 <LuChevronRight size={18} />
               </button>
@@ -400,19 +359,17 @@ const Plans: React.FC = () => {
                 ref={nextRef}
                 type="button"
                 aria-label="پلن بعدی"
-                className="absolute left-0 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-md transition hover:-translate-y-1/2 hover:scale-105 hover:shadow-lg active:scale-95 disabled:opacity-30 disabled:hover:scale-100 md:flex dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                className="absolute left-0 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-md md:flex dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
               >
                 <LuChevronLeft size={18} />
               </Button>
             </>
           )}
 
-          {/* Pagination dots */}
           <div className="plans-pagination mt-2 flex items-center justify-center gap-1.5" />
         </div>
       )}
 
-      {/* Steps guide — numbered, more compact */}
       {plans.length > 0 && (
         <section className="rounded-2xl border border-gray-200 bg-linear-to-br from-gray-50 to-white p-5 dark:border-gray-700 dark:from-gray-900 dark:to-gray-800">
           <p className="mb-3 text-sm font-semibold text-gray-800 dark:text-white">

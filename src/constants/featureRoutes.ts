@@ -1,10 +1,14 @@
 /**
  * Mapping مسیر فرانت → کلید فیچر بک‌اند
- * کلیدها باید دقیقاً با key برگشتی از /access/ یکی باشند.
+ *
+ * مهم:
+ * - کلیدها باید دقیقاً با key برگشتی از /landing/subscription/access/ یکی باشند.
+ * - این فایل فقط برای Route Guard و Sidebar است.
+ * - لیست مجاز بودن فیچر را هرگز از اینجا نگیرید؛ همیشه از useFeatures استفاده کنید.
  */
 export const FEATURE_ROUTE_MAP: Record<string, string | null> = {
   // مدیریت نوبت‌ها
-  "/manage-appointments": "appointments", // یا appointment_management — با بک‌اند چک کنید
+  "/manage-appointments": "appointments",
   "/available-times": "appointments",
   "/working-time": "appointments",
   "/owner-appointment": "appointments",
@@ -61,7 +65,11 @@ export function getFeatureKeyForPath(pathname: string): string | null {
   return null;
 }
 
-/** برای استفاده در کامپوننت‌ها — فقط کلیدهایی که بک‌اند واقعاً برمی‌گرداند */
+/**
+ * فقط برای خوانایی و autocomplete در کامپوننت‌ها.
+ * این object فقط نام‌های شناخته‌شده است؛ منبع حقیقت همچنان access است.
+ * اگر بک‌اند کلید جدیدی اضافه کرد، لازم نیست این object را حتماً آپدیت کنید.
+ */
 export const FEATURE = {
   employees: "employees",
   packages: "packages",
@@ -72,3 +80,5 @@ export const FEATURE = {
   salonProfile: "salon_profile",
   onlineBooking: "online_booking",
 } as const;
+
+export type KnownFeatureKey = (typeof FEATURE)[keyof typeof FEATURE];
