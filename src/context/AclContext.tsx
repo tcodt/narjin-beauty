@@ -1,10 +1,14 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+// src/context/AclContext.tsx
 import React, { createContext, ReactNode, useContext, useMemo } from "react";
 import { useGetProfile } from "../hooks/profile/useGetProfile";
 import { useGetUserPermissionsById } from "../hooks/permissions/useGetUserPermissionsById";
 import { useBusinessMe } from "../hooks/business/useBusinessMe";
 import { useUserType } from "./UserTypeContext";
-import { PermissionsList } from "../types/permissions";
+import { useFeatures } from "../hooks/subscription/useFeature";
+import {
+  PermissionsList,
+  type UserPermissionResponse,
+} from "../types/permissions";
 
 interface AclContextType {
   userPermissions: string[];
@@ -13,7 +17,6 @@ interface AclContextType {
   isOwner: boolean;
   isSuperuser: boolean;
   isLoading: boolean;
-  /** True when this account runs a business panel (salon owner) */
   isBusinessOwner: boolean;
 }
 
@@ -24,7 +27,22 @@ export interface AclProviderProps {
 
 const AclContext = createContext<AclContextType | undefined>(undefined);
 
-const ADMIN_PERMISSIONS: string[] = Object.values(PermissionsList);
+const extractPermissionCodes = (
+  data: UserPermissionResponse | undefined,
+): string[] => {
+  if (!data) return [];
+
+  if (
+    Array.isArray(data.permissions_display) &&
+    data.permissions_display.length > 0
+  ) {
+    return data.permissions_display
+      .map((p) => p.code)
+      .filter((code): code is string => Boolean(code));
+  }
+
+  return [];
+};
 
 export const AclProvider: React.FC<AclProviderProps> = ({
   children,
@@ -33,9 +51,11 @@ export const AclProvider: React.FC<AclProviderProps> = ({
   const { data: userInfo, isLoading: profileLoading } = useGetProfile();
   const { userType } = useUserType();
 
-  // Only fetch business-me when user might be an owner
+  const isOwnerFlag = !!userInfo?.is_owner;
+  const isSuperuser = !!userInfo?.is_superuser;
+
   const shouldCheckBusiness =
-    !!userInfo?.is_owner || userType === "owner" || userType === null;
+    isOwnerFlag || userType === "owner" || userType === null;
 
   const {
     data: businessMe,
@@ -43,61 +63,59 @@ export const AclProvider: React.FC<AclProviderProps> = ({
     isSuccess: hasBusiness,
   } = useBusinessMe();
 
-  const { data: userPermissionData, isLoading: permissionsLoading } =
-    useGetUserPermissionsById(userId ?? 0);
-
-  const isOwnerFlag = !!userInfo?.is_owner;
-  const isSuperuser = !!userInfo?.is_superuser;
-
-  /**
-   * صاحب سالن واقعی.
-   * مهم: isSuperuser را اینجا قاطی نکن.
-   * قبلاً isSuperuser هم isBusinessOwner می‌شد → Users از سایدبار حذف می‌شد.
-   */
   const isBusinessOwner =
     isOwnerFlag || (hasBusiness && businessMe?.is_active !== false);
 
-  /**
-   * دسترسی کامل پنل سالن (صاحب کسب‌وکار).
-   * سوپریوزر پلتفرم جدا است و از isSuperuser کنترل می‌شود.
-   */
-  const isSalonAdmin = isBusinessOwner;
+  // ACL کلاسیک فقط برای کارمند (نه owner)
+  const { data: userPermissionData, isLoading: permissionsLoading } =
+    useGetUserPermissionsById(
+      !isBusinessOwner && !isSuperuser && userId ? userId : 0,
+    );
+
+  // فیچر/پرمیشن اشتراک فقط برای صاحب سالن
+  const {
+    permissions: subscriptionPermissions,
+    isLoading: featuresLoading,
+    panelOk,
+  } = useFeatures(isBusinessOwner && !isSuperuser);
 
   const userPermissions = useMemo<string[]>(() => {
-    // سوپریوزر پلتفرم → همه پرمیشن‌ها
-    if (isSuperuser) return ADMIN_PERMISSIONS;
+    if (isSuperuser) return Object.values(PermissionsList);
 
-    // صاحب سالن → همه پرمیشن‌های پنل سالن
-    if (isSalonAdmin) return ADMIN_PERMISSIONS;
-
-    if (userPermissionData?.permissions_display?.length) {
-      return userPermissionData.permissions_display.map((p) => p.code);
+    if (isBusinessOwner) {
+      return subscriptionPermissions;
     }
 
-    if (Array.isArray((userPermissionData as any)?.permissions)) {
-      return (userPermissionData as any).permissions
-        .map((p: any) => (typeof p === "string" ? p : p?.code))
-        .filter(Boolean);
-    }
-
-    return [];
-  }, [isSuperuser, isSalonAdmin, userPermissionData]);
+    return extractPermissionCodes(userPermissionData);
+  }, [
+    isSuperuser,
+    isBusinessOwner,
+    subscriptionPermissions,
+    userPermissionData,
+  ]);
 
   const role = useMemo<"admin" | "employee" | "normal-user">(() => {
-    if (isSuperuser || isSalonAdmin) return "admin";
+    if (isSuperuser || isBusinessOwner) return "admin";
     if (userPermissions.length > 0) return "employee";
     return "normal-user";
-  }, [isSuperuser, isSalonAdmin, userPermissions.length]);
+  }, [isSuperuser, isBusinessOwner, userPermissions.length]);
 
-  const hasPermission = (permission: string | PermissionsList) => {
-    if (isSuperuser || isSalonAdmin) return true;
+  const hasPermission = (permission: string | PermissionsList): boolean => {
+    if (isSuperuser) return true;
+
+    if (isBusinessOwner) {
+      if (!panelOk) return false;
+      return userPermissions.includes(permission);
+    }
+
     return userPermissions.includes(permission);
   };
 
   const isLoading =
     profileLoading ||
     (shouldCheckBusiness && businessLoading) ||
-    (!!userId && permissionsLoading);
+    (isBusinessOwner && featuresLoading) ||
+    (!isBusinessOwner && !!userId && permissionsLoading);
 
   const value: AclContextType = {
     userPermissions,
@@ -120,5 +138,4 @@ export const useAcl = () => {
   return context;
 };
 
-/** Safe outside PrivateRoutes (onboarding / UserFlow) */
 export const useAclOptional = () => useContext(AclContext);

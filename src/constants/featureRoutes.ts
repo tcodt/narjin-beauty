@@ -1,42 +1,40 @@
 /**
- * Mapping بین مسیرهای فرانت و key واقعی فیچر در پنل ادمین بک‌اند.
- * فقط همین فایل key دارد.
- *
- * null = محدود به فیچر خاص نیست (فقط can_use_panel کافی است)
+ * Mapping مسیر فرانت → کلید فیچر بک‌اند
+ * کلیدها باید دقیقاً با key برگشتی از /access/ یکی باشند.
  */
 export const FEATURE_ROUTE_MAP: Record<string, string | null> = {
   // مدیریت نوبت‌ها
-  "/manage-appointments": "appointment_management",
-  "/available-times": "appointment_management",
-  "/working-time": "appointment_management",
-  "/owner-appointment": "appointment_management",
-  "/update-appointment": "appointment_management",
-  "/update-slots": "appointment_management",
+  "/manage-appointments": "appointments", // یا appointment_management — با بک‌اند چک کنید
+  "/available-times": "appointments",
+  "/working-time": "appointments",
+  "/owner-appointment": "appointments",
+  "/update-appointment": "appointments",
+  "/update-slots": "appointments",
 
   // پرسنل
-  "/manage-employees": "staff_management",
+  "/manage-employees": "employees",
 
   // خدمات
-  "/manage-services": "service_management",
+  "/manage-services": "services",
 
   // مشتریان
-  "/customers-list": "customer_management",
+  "/customers-list": "customers",
 
-  // پرداخت و درآمد
-  "/manual-payments": "payment_management",
-  "/bank-cards": "payment_management",
-  "/submit-manual-payment": "payment_management",
+  // پرداخت
+  "/manual-payments": "payments",
+  "/bank-cards": "payments",
+  "/submit-manual-payment": "payments",
 
-  // پروفایل / برند سالن
+  // پروفایل سالن
   "/business-logo": "salon_profile",
   "/sliders": "salon_profile",
-  "/packages": "salon_profile",
+  "/packages": "packages",
 
   // رزرو آنلاین
   "/reserve": "online_booking",
   "/booking-qr": "online_booking",
 
-  // بدون محدودیت فیچر (فقط اشتراک فعال)
+  // بدون محدودیت فیچر
   "/dashboard": null,
   "/user-profile": null,
   "/settings": null,
@@ -63,29 +61,14 @@ export function getFeatureKeyForPath(pathname: string): string | null {
   return null;
 }
 
-export const BACKEND_FEATURE_KEYS = [
-  "responsive_access",
-  "online_booking",
-  "salon_profile",
-  "business_analytics",
-  "staff_management",
-  "service_management",
-  "payment_management",
-  "customer_management",
-  "appointment_management",
-] as const;
-
-export type BackendFeatureKey = (typeof BACKEND_FEATURE_KEYS)[number];
-
-/** برای استفاده داخل کامپوننت‌ها بدون string پراکنده */
+/** برای استفاده در کامپوننت‌ها — فقط کلیدهایی که بک‌اند واقعاً برمی‌گرداند */
 export const FEATURE = {
-  responsive: "responsive_access",
-  onlineBooking: "online_booking",
+  employees: "employees",
+  packages: "packages",
+  services: "services",
+  customers: "customers",
+  appointments: "appointments",
+  payments: "payments",
   salonProfile: "salon_profile",
-  analytics: "business_analytics",
-  staff: "staff_management",
-  services: "service_management",
-  payments: "payment_management",
-  customers: "customer_management",
-  appointments: "appointment_management",
-} as const satisfies Record<string, BackendFeatureKey>;
+  onlineBooking: "online_booking",
+} as const;

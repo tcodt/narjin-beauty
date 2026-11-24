@@ -2,6 +2,8 @@ import api from "../../utils/api";
 import type {
   Plan,
   Subscription,
+  SubscriptionAccess,
+  SubscriptionStatusResponse,
   SubscriptionOrder,
   CreateOrderPayload,
   SelectPlanPayload,
@@ -14,9 +16,42 @@ export const getPlans = async (): Promise<Plan[]> => {
 };
 
 /**
- * GET /landing/subscription/
- * بدون اشتراک → 404 تمیز
+ * منبع اصلی حقیقت دسترسی و فیچر
+ * GET /landing/subscription/access/
+ * 404 = کاربر سالن ندارد (مثلاً سوپریوزر یا مشتری)
  */
+export const getSubscriptionAccess =
+  async (): Promise<SubscriptionAccess | null> => {
+    try {
+      const { data } = await api.get<SubscriptionAccess>(
+        "/landing/subscription/access/",
+      );
+      return data;
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response
+        ?.status;
+      if (status === 404) return null;
+      throw err;
+    }
+  };
+
+/** GET /landing/subscription/status/ — features الان لیست رشته است */
+export const getSubscriptionStatus =
+  async (): Promise<SubscriptionStatusResponse | null> => {
+    try {
+      const { data } = await api.get<SubscriptionStatusResponse>(
+        "/landing/subscription/status/",
+      );
+      return data;
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response
+        ?.status;
+      if (status === 404) return null;
+      throw err;
+    }
+  };
+
+/** GET /landing/subscription/ — سازگاری */
 export const getSubscription = async (): Promise<Subscription | null> => {
   try {
     const { data } = await api.get<Subscription>("/landing/subscription/");
@@ -25,25 +60,6 @@ export const getSubscription = async (): Promise<Subscription | null> => {
     const status = (err as { response?: { status?: number } })?.response
       ?.status;
     if (status === 404) return null;
-    throw err;
-  }
-};
-
-/** GET /landing/subscription/status/ — نسخه جایگزین/خلاصه */
-export const getSubscriptionStatus = async (): Promise<Subscription | null> => {
-  try {
-    const { data } = await api.get<Subscription>(
-      "/landing/subscription/status/",
-    );
-    return data;
-  } catch (err: unknown) {
-    const status = (err as { response?: { status?: number } })?.response
-      ?.status;
-    if (status === 404) return null;
-    // اگر status هنوز ۴۰۴ بود، fallback به /subscription/
-    if (status === 404 || status === 405) {
-      return getSubscription();
-    }
     throw err;
   }
 };
@@ -59,8 +75,8 @@ export const checkFeature = async (
 
 export const selectPlan = async (
   payload: SelectPlanPayload,
-): Promise<Subscription> => {
-  const { data } = await api.post<Subscription>(
+): Promise<unknown> => {
+  const { data } = await api.post(
     "/landing/subscription/select-plan/",
     payload,
   );
@@ -84,11 +100,6 @@ export const listOrders = async (): Promise<SubscriptionOrder[]> => {
   return data;
 };
 
-/**
- * آپلود فیش
- * نام فیلد رایج: receipt | receipt_image
- * اگر یکی ۴۰۰ داد، نام دیگر را امتحان کن.
- */
 export const uploadReceipt = async (
   orderId: number,
   file: File,

@@ -20,8 +20,25 @@ api.interceptors.response.use(
   (error: AxiosError) => {
     const status = error.response?.status;
     const url = error.config?.url ?? "";
+    const data = error.response?.data as
+      | { detail?: { code?: string } | string }
+      | undefined;
 
-    // Only force logout on 401 for protected endpoints
+    // اشتراک منقضی → صفحهٔ خرید پلن (نه «دسترسی ندارید»)
+    if (status === 403) {
+      const code =
+        typeof data?.detail === "object" ? data.detail?.code : undefined;
+      if (code === "subscription_required") {
+        if (
+          window.location.pathname !== "/plans" &&
+          !window.location.pathname.startsWith("/subscription")
+        ) {
+          window.location.href = "/plans";
+        }
+        return Promise.reject(error);
+      }
+    }
+
     if (status === 401) {
       const isAuthEndpoint =
         url.includes("/login") ||
@@ -30,8 +47,6 @@ api.interceptors.response.use(
 
       if (!isAuthEndpoint) {
         clearAuthTokens();
-        // Prefer router navigation if you later move this into a React context.
-        // For now keep the hard redirect so the app recovers cleanly.
         if (window.location.pathname !== "/login") {
           window.location.href = "/login";
         }

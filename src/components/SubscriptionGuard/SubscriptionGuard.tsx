@@ -1,15 +1,9 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router";
-import { useSubscriptionStatus } from "../../hooks/subscription/useSubscription";
-import { canUsePanel } from "../../hooks/subscription/useFeature";
+import { useFeatures, canUsePanel } from "../../hooks/subscription/useFeature";
 import { useAcl } from "../../context/AclContext";
 import Loading from "../Loading/Loading";
 
-interface Props {
-  children: React.ReactNode;
-}
-
-/** مسیرهایی که مالک بدون اشتراک فعال هم باید ببیند */
 const OWNER_ALLOWED_WITHOUT_PANEL = [
   "/plans",
   "/subscription",
@@ -27,16 +21,17 @@ const isAllowedPath = (pathname: string) =>
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
 
-const SubscriptionGuard: React.FC<Props> = ({ children }) => {
+const SubscriptionGuard: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const location = useLocation();
   const { isBusinessOwner, isOwner, role, isLoading: aclLoading } = useAcl();
   const isOwnerClient = isBusinessOwner || isOwner || role === "admin";
 
-  const { data, isLoading, isError, isFetching } = useSubscriptionStatus(
+  const { access, isLoading, status } = useFeatures(
     isOwnerClient && !aclLoading,
   );
 
-  // مشتری / غیرمالک: گارد اشتراک اصلاً اعمال نشود
   if (aclLoading) return <Loading />;
   if (!isOwnerClient) return <>{children}</>;
 
@@ -44,10 +39,10 @@ const SubscriptionGuard: React.FC<Props> = ({ children }) => {
     return <>{children}</>;
   }
 
-  if (isLoading || isFetching) return <Loading />;
+  if (isLoading) return <Loading />;
 
-  // ۴۰۴ / بدون اشتراک / trial تمام / pending پرداخت
-  if (isError || !canUsePanel(data)) {
+  // blocked یا بدون اشتراک → صفحهٔ انتخاب پلن
+  if (!access || status === "blocked" || !canUsePanel(access)) {
     return (
       <Navigate
         to="/plans"

@@ -2,8 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import {
   getPlans,
+  getSubscriptionAccess,
   getSubscriptionStatus,
-  getSubscription,
   selectPlan,
   createOrder,
   uploadReceipt,
@@ -18,6 +18,7 @@ import type {
 
 export const subscriptionKeys = {
   all: ["subscription"] as const,
+  access: ["subscription-access"] as const,
   status: ["subscription-status"] as const,
   plans: ["landing-plans"] as const,
   orders: ["subscription-orders"] as const,
@@ -31,19 +32,28 @@ export const usePlans = () =>
     staleTime: 5 * 60_000,
   });
 
-/** ترجیح: /status/ — اگر خالی/خطا، سرویس fallback دارد */
+/**
+ * اصلی‌ترین هوک — فقط از access استفاده کن
+ */
+export const useSubscriptionAccess = (enabled = true) => {
+  const { isAuthenticated } = useAuth();
+
+  return useQuery({
+    queryKey: subscriptionKeys.access,
+    queryFn: getSubscriptionAccess,
+    enabled: Boolean(isAuthenticated && enabled),
+    staleTime: 30_000,
+    retry: false,
+  });
+};
+
+/** فقط برای سازگاری یا صفحهٔ وضعیت */
 export const useSubscriptionStatus = (enabled = true) => {
   const { isAuthenticated } = useAuth();
 
   return useQuery({
     queryKey: subscriptionKeys.status,
-    queryFn: async () => {
-      try {
-        return await getSubscriptionStatus();
-      } catch {
-        return getSubscription();
-      }
-    },
+    queryFn: getSubscriptionStatus,
     enabled: Boolean(isAuthenticated && enabled),
     staleTime: 30_000,
     retry: false,
@@ -75,6 +85,7 @@ export const useSelectPlan = () => {
     mutationFn: (payload: SelectPlanPayload | number) =>
       selectPlan(typeof payload === "number" ? { plan_id: payload } : payload),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: subscriptionKeys.access });
       qc.invalidateQueries({ queryKey: subscriptionKeys.status });
       toast.success("پلن انتخاب شد.");
     },
@@ -88,17 +99,9 @@ export const useCreateOrder = () => {
     mutationFn: (payload: CreateOrderPayload) => createOrder(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: subscriptionKeys.orders });
-      qc.invalidateQueries({ queryKey: subscriptionKeys.status });
+      qc.invalidateQueries({ queryKey: subscriptionKeys.access });
     },
-    onError: (err: unknown) => {
-      const status = (err as { response?: { status?: number } })?.response
-        ?.status;
-      if (status === 404) {
-        toast.error("سرویس سفارش در دسترس نیست.");
-      } else {
-        toast.error("خطا در ایجاد سفارش");
-      }
-    },
+    onError: () => toast.error("خطا در ایجاد سفارش"),
   });
 };
 
@@ -115,7 +118,7 @@ export const useUploadReceipt = () => {
       userNote?: string;
     }) => uploadReceipt(orderId, file, userNote),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: subscriptionKeys.status });
+      qc.invalidateQueries({ queryKey: subscriptionKeys.access });
       qc.invalidateQueries({ queryKey: subscriptionKeys.orders });
       toast.success("فیش ارسال شد. منتظر بررسی ادمین باشید.");
     },

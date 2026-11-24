@@ -2,19 +2,15 @@ import { useFeatures, canUsePanel } from "./useFeature";
 
 export { canUsePanel };
 
-/**
- * @param featureKey از FEATURE / FEATURE_ROUTE_MAP بیاید — داخل صفحه hardcode نکن
- */
 export const useHasFeature = (featureKey?: string | null, enabled = true) => {
-  const { hasFeature, isLoading, getFeatureValue, panelOk } =
-    useFeatures(enabled);
+  const { hasFeature, isLoading, panelOk, getFeature } = useFeatures(enabled);
 
   if (!featureKey) {
     return {
       hasFeature: panelOk,
       isLoading,
-      value: null as string | null,
       allowed: panelOk,
+      feature: null,
     };
   }
 
@@ -23,7 +19,7 @@ export const useHasFeature = (featureKey?: string | null, enabled = true) => {
   return {
     hasFeature: allowed,
     isLoading,
-    value: getFeatureValue(featureKey),
     allowed,
+    feature: getFeature(featureKey) ?? null,
   };
 };

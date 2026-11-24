@@ -7,24 +7,20 @@ import { useFeatures } from "../../hooks/subscription/useFeature";
 
 interface Props {
   children: React.ReactNode;
-  /** فقط در موارد خاص override — معمولاً لازم نیست */
   featureKey?: string | null;
 }
 
-/**
- * key را از pathname → FEATURE_ROUTE_MAP می‌گیرد.
- * صفحه هیچ keyی نمی‌نویسد.
- */
 const FeatureGate: React.FC<Props> = ({ children, featureKey }) => {
   const { pathname } = useLocation();
-  const { hasFeature, isLoading, panelOk } = useFeatures();
+  const { hasFeature, isLocked, isLoading, panelOk, status } = useFeatures();
 
   const key =
     featureKey !== undefined ? featureKey : getFeatureKeyForPath(pathname);
 
   if (isLoading) return <Loading />;
 
-  if (!panelOk) {
+  // blocked → کاربر را به صفحهٔ پلن هدایت کن (SubscriptionGuard هم این کار را می‌کند)
+  if (!panelOk || status === "blocked") {
     return (
       <FeatureLocked
         title="اشتراک شما منقضی شده"
@@ -33,9 +29,17 @@ const FeatureGate: React.FC<Props> = ({ children, featureKey }) => {
     );
   }
 
-  // این route به فیچر خاصی وصل نیست
   if (key === null || key === undefined) {
     return <>{children}</>;
+  }
+
+  if (isLocked(key)) {
+    return (
+      <FeatureLocked
+        title="این قابلیت در پلن فعلی فعال نیست"
+        description="برای استفاده از این بخش، پلن مناسب را انتخاب کنید."
+      />
+    );
   }
 
   if (!hasFeature(key)) {
