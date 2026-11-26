@@ -19,7 +19,7 @@ import "swiper/css/pagination";
 
 import {
   usePlans,
-  useSubscriptionStatus,
+  useSubscriptionAccess,
 } from "../../hooks/subscription/useSubscription";
 import { canUsePanel } from "../../hooks/subscription/useFeature";
 import PageTitle from "../../components/PageTitle/PageTitle";
@@ -31,8 +31,6 @@ import {
   themeBgSoft,
 } from "../../utils/themeClasses";
 import type { Plan } from "../../types/subscription";
-import type { SubscriptionAccess } from "../../types/subscription";
-import Button from "../../components/Button/Button";
 
 type PlanWithMeta = Plan & { is_popular?: boolean };
 
@@ -120,7 +118,9 @@ const PlanCard: React.FC<PlanCardProps> = ({
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
-      className={`relative flex h-full flex-col rounded-3xl p-6 transition-all duration-300 ${surface} ${selected ? "ring-2 ring-offset-2 ring-gray-900 dark:ring-gray-100" : ""}`}
+      className={`relative flex h-full flex-col rounded-3xl p-6 transition-all duration-300 ${surface} ${
+        selected ? "ring-2 ring-offset-2 ring-gray-900 dark:ring-gray-100" : ""
+      }`}
       aria-label={`پلن ${plan.title}`}
     >
       {featured && (
@@ -145,7 +145,11 @@ const PlanCard: React.FC<PlanCardProps> = ({
           ) : (
             <>
               <span
-                className={`text-4xl font-extrabold tracking-tight tabular-nums ${featured ? themeText[themeColor] : "text-gray-900 dark:text-white"}`}
+                className={`text-4xl font-extrabold tracking-tight tabular-nums ${
+                  featured
+                    ? themeText[themeColor]
+                    : "text-gray-900 dark:text-white"
+                }`}
               >
                 {formatPrice(plan.price)}
               </span>
@@ -177,7 +181,11 @@ const PlanCard: React.FC<PlanCardProps> = ({
           {included.map((row) => (
             <li key={row.id} className="flex items-start gap-2.5 text-sm">
               <span
-                className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${featured ? `${themeBgSoft[themeColor]} ${themeText[themeColor]}` : "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"}`}
+                className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${
+                  featured
+                    ? `${themeBgSoft[themeColor]} ${themeText[themeColor]}`
+                    : "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
+                }`}
               >
                 <LuCheck size={10} strokeWidth={3} />
               </span>
@@ -208,6 +216,7 @@ const PlanCard: React.FC<PlanCardProps> = ({
                 className={`transition-transform ${showExcluded ? "-rotate-90" : ""}`}
               />
             </button>
+
             {showExcluded && (
               <motion.ul
                 initial={{ opacity: 0, height: 0 }}
@@ -250,13 +259,13 @@ const Plans: React.FC = () => {
   const navigate = useNavigate();
   const { themeColor } = useThemeColor();
   const { data: plans = [], isPending } = usePlans();
-  const { data: sub } = useSubscriptionStatus();
+  // منبع حقیقت: access
+  const { data: access } = useSubscriptionAccess();
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
 
-  // فقط SubscriptionAccess قبول می‌شود
-  const panelOk = canUsePanel(sub as SubscriptionAccess | null);
+  const panelOk = canUsePanel(access ?? null);
 
   const featuredIndex = useMemo(() => {
     const idx = (plans as PlanWithMeta[]).findIndex((p) => p.is_popular);
@@ -321,9 +330,11 @@ const Plans: React.FC = () => {
               1024: { slidesPerView: 3 },
             }}
             onBeforeInit={(swiper) => {
-              if (swiper.params.navigation) {
-                swiper.params.navigation.prevEl = prevRef.current;
-                swiper.params.navigation.nextEl = nextRef.current;
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const nav = swiper.params.navigation as any;
+              if (nav) {
+                nav.prevEl = prevRef.current;
+                nav.nextEl = nextRef.current;
               }
             }}
             className="pb-14! pt-6!"
@@ -355,14 +366,14 @@ const Plans: React.FC = () => {
               >
                 <LuChevronRight size={18} />
               </button>
-              <Button
+              <button
                 ref={nextRef}
                 type="button"
                 aria-label="پلن بعدی"
                 className="absolute left-0 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-md md:flex dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
               >
                 <LuChevronLeft size={18} />
-              </Button>
+              </button>
             </>
           )}
 

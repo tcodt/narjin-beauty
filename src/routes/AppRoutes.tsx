@@ -177,7 +177,7 @@ const OnboardingOnly: React.FC<{ children: React.ReactNode }> = ({
 };
 
 /* -------------------------------------------------------------------------- */
-/* Layout shells                                                              */
+/* Layout shells — داخل src/routes/AppRoutes.tsx                              */
 /* -------------------------------------------------------------------------- */
 
 /** مشتری + صفحات مشترک — بدون محدودیت اشتراک */
@@ -193,7 +193,11 @@ const AppShell: React.FC = () => (
 
 /**
  * مالک — مدیریت سالن
- * SubscriptionGuard فقط برای owner اعمال می‌شود (داخل خود گارد)
+ * - PrivateRoutes → لاگین
+ * - BusinessStatusGuard → وضعیت کسب‌وکار
+ * - SubscriptionGuard → can_use_panel / blocked → /plans
+ * - MainLayout → Sidebar + TopBar + Outlet
+ * فیچرهای جزئی با <FeatureGate> روی هر Route کنترل می‌شوند
  */
 const OwnerShell: React.FC = () => (
   <PrivateRoutes>
@@ -207,7 +211,10 @@ const OwnerShell: React.FC = () => (
   </PrivateRoutes>
 );
 
-/** پلن و خرید — همیشه برای مالک در دسترس (بدون قفل اشتراک) */
+/**
+ * پلن و خرید — همیشه برای مالک در دسترس
+ * (بدون SubscriptionGuard تا وقتی اشتراک ندارد بتواند بخرد)
+ */
 const SubscriptionShell: React.FC = () => (
   <PrivateRoutes>
     <BusinessStatusGuard>
@@ -217,7 +224,6 @@ const SubscriptionShell: React.FC = () => (
     </BusinessStatusGuard>
   </PrivateRoutes>
 );
-
 /* -------------------------------------------------------------------------- */
 /* Routes                                                                     */
 /* -------------------------------------------------------------------------- */
