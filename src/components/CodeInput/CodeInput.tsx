@@ -1,78 +1,129 @@
-// components/CodeInput/CodeInput.tsx
-
-import React, { useState, useRef, useEffect } from "react";
-import { useThemeColor } from "../../context/ThemeColor";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { ThemeColorName, useThemeColor } from "../../context/ThemeColor";
 
 interface CodeInputProps {
-  length?: number; // مثلاً 5
+  length?: number;
   onComplete: (code: string) => void;
+  onChange?: (code: string) => void;
+  disabled?: boolean;
+  /** برای ریست از والد */
+  resetKey?: number;
 }
 
-const CodeInput: React.FC<CodeInputProps> = ({ length = 5, onComplete }) => {
-  const [code, setCode] = useState<string[]>(new Array(length).fill(""));
+const themeCell: Record<ThemeColorName, string> = {
+  "primary-green":
+    "border-primary-green-300 focus:border-primary-green-500 focus:ring-primary-green-500/25 dark:border-primary-green-700 dark:focus:border-primary-green-400",
+  orange:
+    "border-orange-300 focus:border-orange-500 focus:ring-orange-500/25 dark:border-orange-700 dark:focus:border-orange-400",
+  blue: "border-blue-300 focus:border-blue-500 focus:ring-blue-500/25 dark:border-blue-700 dark:focus:border-blue-400",
+  red: "border-red-300 focus:border-red-500 focus:ring-red-500/25 dark:border-red-700 dark:focus:border-red-400",
+  green:
+    "border-green-300 focus:border-green-500 focus:ring-green-500/25 dark:border-green-700 dark:focus:border-green-400",
+  purple:
+    "border-purple-300 focus:border-purple-500 focus:ring-purple-500/25 dark:border-purple-700 dark:focus:border-purple-400",
+  yellow:
+    "border-yellow-300 focus:border-yellow-500 focus:ring-yellow-500/25 dark:border-yellow-700 dark:focus:border-yellow-400",
+};
+
+const CodeInput: React.FC<CodeInputProps> = ({
+  length = 6,
+  onComplete,
+  onChange,
+  disabled = false,
+  resetKey = 0,
+}) => {
+  const [code, setCode] = useState<string[]>(() => Array(length).fill(""));
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
   const { themeColor } = useThemeColor();
+  const completedRef = useRef(false);
 
-  // وقتی همه خانه‌ها پر شد، به والد خبر بده
   useEffect(() => {
-    if (code.every((digit) => digit !== "")) {
-      onComplete(code.join(""));
-    }
-  }, [code, onComplete]);
+    setCode(Array(length).fill(""));
+    completedRef.current = false;
+    inputsRef.current[0]?.focus();
+  }, [length, resetKey]);
 
-  // وقتی کامپوننت مانت شد، اولین اینپوت فوکوس بشه (مهم!)
   useEffect(() => {
     inputsRef.current[0]?.focus();
   }, []);
 
+  const emit = useCallback(
+    (next: string[]) => {
+      const joined = next.join("");
+      onChange?.(joined);
+      if (next.every((d) => d !== "") && !completedRef.current) {
+        completedRef.current = true;
+        onComplete(joined);
+      }
+      if (next.some((d) => d === "")) {
+        completedRef.current = false;
+      }
+    },
+    [onChange, onComplete],
+  );
+
   const handleChange = (index: number, value: string) => {
-    if (!/^\d?$/.test(value)) return; // فقط عدد
-
-    const newCode = [...code];
-    newCode[index] = value;
-    setCode(newCode);
-
-    // اگر چیزی وارد کرد و هنوز آخر نرسیده، برو بعدی
-    if (value && index < length - 1) {
+    if (disabled) return;
+    const digit = value.replace(/\D/g, "").slice(-1);
+    const next = [...code];
+    next[index] = digit;
+    setCode(next);
+    emit(next);
+    if (digit && index < length - 1) {
       inputsRef.current[index + 1]?.focus();
     }
   };
 
   const handleKeyDown = (
     index: number,
-    e: React.KeyboardEvent<HTMLInputElement>
+    e: React.KeyboardEvent<HTMLInputElement>,
   ) => {
+    if (disabled) return;
     if (e.key === "Backspace") {
-      if (!code[index] && index > 0) {
-        // اگر خالی بود و Backspace زد، برو قبلی و پاکش کن
+      e.preventDefault();
+      const next = [...code];
+      if (next[index]) {
+        next[index] = "";
+        setCode(next);
+        emit(next);
+      } else if (index > 0) {
+        next[index - 1] = "";
+        setCode(next);
+        emit(next);
         inputsRef.current[index - 1]?.focus();
       }
-      // در هر صورت مقدار فعلی رو پاک کن
-      const newCode = [...code];
-      newCode[index] = "";
-      setCode(newCode);
+    }
+    if (e.key === "ArrowLeft" && index > 0) {
+      inputsRef.current[index - 1]?.focus();
+    }
+    if (e.key === "ArrowRight" && index < length - 1) {
+      inputsRef.current[index + 1]?.focus();
     }
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
+    if (disabled) return;
     e.preventDefault();
     const pasted = e.clipboardData
       .getData("text")
       .replace(/\D/g, "")
       .slice(0, length);
-    if (pasted.length > 0) {
-      const newCode = pasted
-        .split("")
-        .concat(new Array(length - pasted.length).fill(""));
-      setCode(newCode);
-      // فوکوس روی آخرین خانه پر شده
-      const nextIndex = Math.min(pasted.length, length - 1);
-      inputsRef.current[nextIndex]?.focus();
-    }
+    if (!pasted) return;
+    const next = pasted
+      .split("")
+      .concat(Array(Math.max(0, length - pasted.length)).fill(""));
+    setCode(next);
+    emit(next);
+    inputsRef.current[Math.min(pasted.length, length - 1)]?.focus();
   };
 
   return (
-    <div className="flex gap-3 justify-center" dir="ltr">
+    <div
+      className="flex justify-center gap-2 sm:gap-3"
+      dir="ltr"
+      role="group"
+      aria-label="کد تأیید"
+    >
       {code.map((digit, index) => (
         <input
           key={index}
@@ -81,15 +132,15 @@ const CodeInput: React.FC<CodeInputProps> = ({ length = 5, onComplete }) => {
           }}
           type="text"
           inputMode="numeric"
+          autoComplete={index === 0 ? "one-time-code" : "off"}
           maxLength={1}
           value={digit}
+          disabled={disabled}
           onChange={(e) => handleChange(index, e.target.value)}
           onKeyDown={(e) => handleKeyDown(index, e)}
           onPaste={handlePaste}
-          className={`w-12 h-12 text-center text-2xl font-bold rounded-xl border-2 border-${themeColor}-300 focus:border-${themeColor}-500 focus:ring-4 focus:ring-${themeColor}-100 outline-none transition-all`}
-          style={{
-            fontFeatureSettings: '"liga" 0', // غیرفعال کردن لیگیچر برای اعداد فارسی
-          }}
+          aria-label={`رقم ${index + 1}`}
+          className={`h-12 w-11 rounded-xl border-2 bg-white text-center text-xl font-bold text-gray-900 outline-none transition focus:ring-4 disabled:opacity-50 dark:bg-gray-900 dark:text-white sm:h-14 sm:w-12 sm:text-2xl ${themeCell[themeColor]}`}
         />
       ))}
     </div>

@@ -4,7 +4,6 @@ import { useNavigate } from "react-router";
 import toast from "react-hot-toast";
 import SidebarToggleButton from "../SidebarToggleButton/SidebarToggleButton";
 import CustomModal from "../CustomModal/CustomModal";
-import ColorPicker from "../ColorPicker/ColorPicker";
 import { useThemeColor } from "../../context/ThemeColor";
 import DarkModeToggle from "../DarkModeToggle/DarkModeToggle";
 import { motion, AnimatePresence } from "framer-motion";
@@ -201,7 +200,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 /* -------------------------------------------------------------------------- */
 
 const TopBar: React.FC = () => {
-  const [isSettingOpen, setIsSettingOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const { themeColor } = useThemeColor();
@@ -286,13 +284,12 @@ const TopBar: React.FC = () => {
         {/* فقط آیکون تغییر تم (خورشید / ماه) */}
         <DarkModeToggle variant="compact" />
 
-        {/* gear فقط برای رنگ تم */}
         <button
           type="button"
-          id="theme-color-settings"
-          onClick={() => setIsSettingOpen(true)}
+          id="settings"
+          onClick={() => navigate("/settings")}
           className="flex h-10 w-10 items-center justify-center rounded-xl text-white/95 transition hover:bg-white/15 active:scale-95"
-          aria-label="تنظیمات رنگ"
+          aria-label="تنظیمات"
         >
           <IoSettingsOutline size={22} />
         </button>
@@ -331,20 +328,6 @@ const TopBar: React.FC = () => {
           />
         </div>
       </div>
-
-      {/* مودال فقط رنگ تم — بدون DarkModeToggle */}
-      <CustomModal
-        isOpen={isSettingOpen}
-        onClose={() => setIsSettingOpen(false)}
-        title="رنگ تم"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600 dark:text-gray-300">
-            رنگ اصلی برنامه را انتخاب کنید
-          </p>
-          <ColorPicker />
-        </div>
-      </CustomModal>
 
       <CustomModal
         isOpen={isNotifOpen}

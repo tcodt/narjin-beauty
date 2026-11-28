@@ -17,7 +17,7 @@ import { useLocation, useNavigate } from "react-router";
 import { useSidebar } from "../../context/SidebarContext";
 import { useAuth } from "../../context/AuthContext";
 import { HiClipboardList } from "react-icons/hi";
-import { IoLogOut } from "react-icons/io5";
+import { IoLogOut, IoSettingsOutline } from "react-icons/io5";
 import { FaSliders, FaUsersGear } from "react-icons/fa6";
 import { useThemeColor } from "../../context/ThemeColor";
 import { TbCalendarTime } from "react-icons/tb";
@@ -193,6 +193,11 @@ const Sidebar: React.FC = () => {
         icon: <MdPerson size={20} />,
         label: "پروفایل",
         path: "/user-profile",
+      },
+      {
+        icon: <IoSettingsOutline size={20} />,
+        label: "تنظیمات",
+        path: "/settings",
       },
     ],
     [],

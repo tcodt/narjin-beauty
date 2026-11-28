@@ -7,13 +7,9 @@ export const verifyResetCode = async ({
   phoneNumber: string;
   code: string;
 }) => {
-  try {
-    const response = await api.post("/accounts/verify-reset-code/", {
-      phone_number: phoneNumber,
-      code,
-    });
-    return response.data;
-  } catch (error) {
-    console.log(error);
-  }
+  const { data } = await api.post("/accounts/verify-reset-code/", {
+    phone_number: phoneNumber,
+    code,
+  });
+  return data;
 };

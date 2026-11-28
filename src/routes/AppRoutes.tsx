@@ -346,7 +346,16 @@ const AppRoutes: React.FC = () => {
               }
             />
 
-            <Route path="/settings" element={<Settings />} />
+            <Route
+              path="/settings"
+              element={
+                <RoleRoute allow="any">
+                  {" "}
+                  {/* یا owner/customer بسته به سیاستت */}
+                  <Settings />
+                </RoleRoute>
+              }
+            />
 
             <Route
               path="/view-appointment/:id"

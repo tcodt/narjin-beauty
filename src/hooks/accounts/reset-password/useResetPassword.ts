@@ -1,8 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
-import { resetPassword } from "../../../services/accounts/reset-password/resetPassword";
+import {
+  resetPassword,
+  type ResetPasswordPayload,
+} from "../../../services/accounts/reset-password/resetPassword";
 
 export const useResetPassword = () => {
   return useMutation({
-    mutationFn: resetPassword,
+    mutationFn: (payload: ResetPasswordPayload) => resetPassword(payload),
   });
 };

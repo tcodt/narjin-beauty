@@ -1,12 +1,13 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   LuCircleCheck,
   LuCircleAlert,
   LuCreditCard,
   LuClock,
   LuTriangleAlert,
+  LuX,
 } from "react-icons/lu";
 import { HiArrowLeft } from "react-icons/hi";
 
@@ -20,6 +21,8 @@ import type { Subscription as ApiSubscription } from "../../types/subscription";
 
 export type BannerSubscription = Partial<ApiSubscription> & {
   end_date?: string | null;
+  expires_at?: string | null;
+  paid_until?: string | null;
   is_active?: boolean;
   plan_name?: string | null;
   start_date?: string | null;
@@ -41,6 +44,9 @@ type SubscriptionState =
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
+const getEndIso = (sub: BannerSubscription) =>
+  sub.paid_until ?? sub.end_date ?? sub.expires_at ?? null;
+
 const daysUntil = (iso?: string | null): number | null => {
   if (!iso) return null;
   const t = new Date(iso).getTime();
@@ -60,7 +66,6 @@ const formatFaDate = (iso?: string | null): string => {
   }
 };
 
-/** Percent of a period that has elapsed (0–100). Null if unknown. */
 const progressPct = (
   startIso: string | null | undefined,
   endIso: string | null | undefined,
@@ -84,7 +89,7 @@ const deriveState = (
   if (status === "rejected") return "expired";
 
   const trialDays = daysUntil(sub.trial_end);
-  const endDays = daysUntil(sub.end_date ?? sub.expires_at);
+  const endDays = daysUntil(getEndIso(sub));
 
   const paid =
     status === "paid" || sub.active === true || sub.is_active === true;
@@ -110,15 +115,10 @@ const deriveState = (
 
 interface View {
   Icon: React.ComponentType<{ size?: number; className?: string }>;
-  /** wrapper border + bg */
   wrapper: string;
-  /** icon halo bg + text */
   iconWrap: string;
-  /** progress bar fill */
   progress: string | null;
-  /** 0–100 or null */
   progressPct: number | null;
-  /** small kicker label above title */
   kicker: string;
   title: string;
   body: React.ReactNode;
@@ -126,7 +126,6 @@ interface View {
   ctaTo: string;
   urgent: boolean;
   tone: "neutral" | "info" | "warning" | "danger" | "success";
-  /** NEW: accent color used by left bar + kicker dot */
   accent: string;
 }
 
@@ -337,13 +336,58 @@ interface Props {
   subscription: BannerSubscription | null | undefined;
   isLoading?: boolean;
   themeColor: ThemeColorName;
+  /** Called after the banner is dismissed (via click or close button). */
+  onDismiss?: () => void;
+  /** Disable dismissible behavior entirely (e.g. for `pending` state). */
+  dismissible?: boolean;
+  /**
+   * Optional session key. When provided, the component remembers dismissal
+   * in `sessionStorage` for this key and won't render again until the tab
+   * is closed (or until `sessionStorage` is cleared).
+   */
+  dismissKey?: string;
 }
+
+const useSessionDismissed = (key: string | undefined) => {
+  const [dismissed, setDismissed] = useState<boolean>(() => {
+    if (!key || typeof window === "undefined") return false;
+    try {
+      return sessionStorage.getItem(key) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    if (!key) return;
+    try {
+      if (dismissed) sessionStorage.setItem(key, "1");
+      else sessionStorage.removeItem(key);
+    } catch {
+      /* ignore quota / private mode errors */
+    }
+  }, [key, dismissed]);
+
+  return [dismissed, setDismissed] as const;
+};
 
 export const SubscriptionStatusBanner: React.FC<Props> = ({
   subscription,
   isLoading,
   themeColor,
+  onDismiss,
+  dismissible = true,
+  dismissKey,
 }) => {
+  const [sessionDismissed, setSessionDismissed] = useSessionDismissed(
+    dismissible ? dismissKey : undefined,
+  );
+
+  const handleDismiss = () => {
+    setSessionDismissed(true);
+    onDismiss?.();
+  };
+
   if (isLoading) {
     return (
       <div
@@ -368,111 +412,153 @@ export const SubscriptionStatusBanner: React.FC<Props> = ({
   const safeSub: BannerSubscription = subscription ?? {};
   const v = buildView(safeSub, themeColor);
   const { Icon } = v;
+  const canDismiss = dismissible && !sessionDismissed;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 300, damping: 24 }}
-      className="col-span-full motion-reduce:transition-none"
-      role={v.urgent ? "status" : undefined}
-      aria-live={v.urgent ? "polite" : undefined}
-    >
-      <div
-        className={`group relative overflow-hidden rounded-2xl border p-4 pl-5 shadow-sm transition-all duration-200 hover:-translate-y-px hover:shadow-md ${v.wrapper}`}
-      >
-        {/* Left accent bar */}
-        <span
-          aria-hidden="true"
-          className={`absolute inset-y-0 right-0 w-1 ${v.accent}`}
-        />
-
-        <div className="flex items-start gap-3">
-          {/* Icon halo */}
+    <AnimatePresence initial={false}>
+      {canDismiss && (
+        <motion.div
+          key="banner"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8, scale: 0.98 }}
+          transition={{ type: "spring", stiffness: 300, damping: 24 }}
+          className="col-span-full motion-reduce:transition-none"
+          role={v.urgent ? "status" : undefined}
+          aria-live={v.urgent ? "polite" : undefined}
+        >
           <div
-            className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl shadow-inner ring-1 ring-black/5 dark:ring-white/10 ${v.iconWrap}`}
-            aria-hidden="true"
+            className={`group relative overflow-hidden rounded-2xl border p-4 pl-5 pr-10 shadow-sm transition-all duration-200 hover:-translate-y-px hover:shadow-md ${
+              canDismiss ? "cursor-pointer hover:brightness-[1.01]" : ""
+            } ${v.wrapper}`}
+            onClick={canDismiss ? handleDismiss : undefined}
+            role={canDismiss ? "button" : undefined}
+            tabIndex={canDismiss ? 0 : undefined}
+            aria-label={canDismiss ? "بستن اعلان وضعیت اشتراک" : undefined}
+            onKeyDown={
+              canDismiss
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleDismiss();
+                    }
+                  }
+                : undefined
+            }
           >
-            <Icon size={20} />
-            {v.urgent && (
-              <span className="absolute -top-1 -left-1 rounded-full bg-amber-500 px-1.5 py-px text-[9px] font-bold text-white shadow-sm">
-                !
-              </span>
-            )}
-          </div>
-
-          <div className="min-w-0 flex-1">
-            {/* Kicker with tone dot */}
-            <div className="flex items-center gap-1.5">
-              <span
-                aria-hidden="true"
-                className={`h-1.5 w-1.5 rounded-full ${v.accent}`}
-              />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {v.kicker}
-              </span>
-            </div>
-
-            <h4 className="mt-0.5 truncate text-[15px] font-bold tracking-tight text-gray-900 dark:text-gray-50">
-              {v.title}
-            </h4>
-
-            <div className="mt-1 text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">
-              {v.body}
-            </div>
-
-            {/* Progress bar */}
-            {v.progressPct !== null && v.progress && (
-              <div
-                className="mt-2.5"
-                role="progressbar"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={Math.round(v.progressPct)}
-                aria-label="میزان سپری‌شده از دوره"
-              >
-                <div className="h-2 w-full overflow-hidden rounded-full bg-black/[0.07] shadow-inner dark:bg-white/10">
-                  <div
-                    className={`h-full rounded-full shadow-sm transition-[width] duration-700 ${v.progress}`}
-                    style={{
-                      width: `${v.progressPct}%`,
-                      transitionTimingFunction:
-                        "cubic-bezier(0.22, 1, 0.36, 1)",
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {v.cta && (
-            <Link
-              to={v.ctaTo}
-              className={`group/btn hidden shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold text-white shadow-md ring-1 ring-white/10 transition-all duration-200 hover:-translate-y-px hover:shadow-lg hover:brightness-110 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2 motion-reduce:transform-none sm:inline-flex ${themeBgSolid[themeColor]}`}
-            >
-              {v.cta}
-              <HiArrowLeft
-                size={12}
-                className="transition-transform duration-200 group-hover/btn:-translate-x-1 motion-reduce:transform-none"
-              />
-            </Link>
-          )}
-        </div>
-
-        {v.cta && (
-          <Link
-            to={v.ctaTo}
-            className={`group/btn mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2 sm:hidden ${themeBgSolid[themeColor]}`}
-          >
-            {v.cta}
-            <HiArrowLeft
-              size={12}
-              className="transition-transform duration-200 group-hover/btn:-translate-x-1 motion-reduce:transform-none"
+            {/* Accent bar */}
+            <span
+              aria-hidden="true"
+              className={`absolute inset-y-0 right-0 w-1 ${v.accent}`}
             />
-          </Link>
-        )}
-      </div>
-    </motion.div>
+
+            {/* Close button */}
+            {canDismiss && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDismiss();
+                }}
+                aria-label="بستن اعلان"
+                className="absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 opacity-0 transition-all duration-150 hover:bg-black/5 hover:text-gray-600 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current group-hover:opacity-100 dark:hover:bg-white/10 dark:hover:text-gray-200 sm:opacity-0"
+                // always visible on mobile, fade-in on desktop
+                style={{ opacity: undefined }}
+              >
+                <LuX size={14} />
+              </button>
+            )}
+
+            <div className="flex items-start gap-3">
+              {/* Icon halo */}
+              <div
+                className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl shadow-inner ring-1 ring-black/5 dark:ring-white/10 ${v.iconWrap}`}
+                aria-hidden="true"
+              >
+                <Icon size={20} />
+                {v.urgent && (
+                  <span className="absolute -top-1 -left-1 rounded-full bg-amber-500 px-1.5 py-px text-[9px] font-bold text-white shadow-sm">
+                    !
+                  </span>
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                {/* Kicker with tone dot */}
+                <div className="flex items-center gap-1.5">
+                  <span
+                    aria-hidden="true"
+                    className={`h-1.5 w-1.5 rounded-full ${v.accent}`}
+                  />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    {v.kicker}
+                  </span>
+                </div>
+
+                <h4 className="mt-0.5 truncate text-[15px] font-bold tracking-tight text-gray-900 dark:text-gray-50">
+                  {v.title}
+                </h4>
+
+                <div className="mt-1 text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">
+                  {v.body}
+                </div>
+
+                {/* Progress bar */}
+                {v.progressPct !== null && v.progress && (
+                  <div
+                    className="mt-2.5"
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round(v.progressPct)}
+                    aria-label="میزان سپری‌شده از دوره"
+                  >
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-black/[0.07] shadow-inner dark:bg-white/10">
+                      <div
+                        className={`h-full rounded-full shadow-sm transition-[width] duration-700 ${v.progress}`}
+                        style={{
+                          width: `${v.progressPct}%`,
+                          transitionTimingFunction:
+                            "cubic-bezier(0.22, 1, 0.36, 1)",
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {v.cta && (
+                <Link
+                  to={v.ctaTo}
+                  onClick={(e) => e.stopPropagation()}
+                  className={`group/btn hidden shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold text-white shadow-md ring-1 ring-white/10 transition-all duration-200 hover:-translate-y-px hover:shadow-lg hover:brightness-110 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2 motion-reduce:transform-none sm:inline-flex ${themeBgSolid[themeColor]}`}
+                >
+                  {v.cta}
+                  <HiArrowLeft
+                    size={12}
+                    className="transition-transform duration-200 group-hover/btn:-translate-x-1 motion-reduce:transform-none"
+                  />
+                </Link>
+              )}
+            </div>
+
+            {v.cta && (
+              <Link
+                to={v.ctaTo}
+                onClick={(e) => e.stopPropagation()}
+                className={`group/btn mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2 sm:hidden ${themeBgSolid[themeColor]}`}
+              >
+                {v.cta}
+                <HiArrowLeft
+                  size={12}
+                  className="transition-transform duration-200 group-hover/btn:-translate-x-1 motion-reduce:transform-none"
+                />
+              </Link>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 
